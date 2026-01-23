@@ -106,12 +106,12 @@
 
         .collapsible-header {
           padding: 12px 16px;
-          background: #2a2a2a;
+          background: #0af;
           cursor: pointer;
           user-select: none;
           font-weight: 600;
           transition: background 0.2s, color 0.2s;
-          color: #0af;
+          color: #eee;
         }
 
         .collapsible-header:hover {
