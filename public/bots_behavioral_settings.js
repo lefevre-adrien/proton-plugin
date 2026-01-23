@@ -14,7 +14,7 @@
 
     const FIXED_HEIGHT = 300;
     const CANDLE_COUNT = 50;
-    const INFLUENCE = 12;
+    const INFLUENCE = 48;
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
