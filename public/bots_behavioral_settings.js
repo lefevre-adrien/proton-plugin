@@ -14,7 +14,8 @@
 
     const FIXED_HEIGHT = 300;
     const CANDLE_COUNT = 50;
-    const INFLUENCE = 48;
+    const PRICE_MIN = 80;
+    const PRICE_MAX = 120;
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
@@ -63,28 +64,18 @@
     /* -------------------- CANDLES -------------------- */
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
-      let price = 100;
       const candles = [];
 
       curveValues.forEach((v, i) => {
-        const delta = (v - 0.5) * INFLUENCE;
-        const smallNoise = (Math.random() - 0.5) * 1.5; // tiny randomness
-
+        const price = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = open + delta + smallNoise;
-        const high = Math.max(open, close) + Math.random();
-        const low = Math.min(open, close) - Math.random();
-
-        price = close;
+        const close = price;
+        const high = price + Math.random() * 0.3;
+        const low = price - Math.random() * 0.3;
 
         candles.push({
           x: Date.now() + i * 86400000,
-          y: [
-            +open.toFixed(2),
-            +high.toFixed(2),
-            +low.toFixed(2),
-            +close.toFixed(2)
-          ]
+          y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
         });
       });
 
@@ -98,7 +89,6 @@
       const inner = chartDiv.querySelector('.apexcharts-inner.apexcharts-graphical');
       if (!inner) return;
 
-      // Remove old SVG if exists
       if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
 
       const { width, height } = inner.getBoundingClientRect();
@@ -123,7 +113,7 @@
         const p = curve;
         path.setAttribute(
           'd',
-          `M ${p.p0.x * width} ${(1 - p.p0.y) * height} 
+          `M ${p.p0.x * width} ${(1 - p.p0.y) * height}
            C ${p.p1.x * width} ${(1 - p.p1.y) * height},
              ${p.p2.x * width} ${(1 - p.p2.y) * height},
              ${p.p3.x * width} ${(1 - p.p3.y) * height}`
@@ -159,7 +149,7 @@
         sync();
       }
 
-      // Only p1 and p2 are draggable
+      // Only draggable points
       makeHandle(curve.p1);
       makeHandle(curve.p2);
       updatePath();
@@ -170,7 +160,7 @@
 
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
-      requestAnimationFrame(() => mountBezierOverlay()); // reattach overlay
+      requestAnimationFrame(mountBezierOverlay);
     }
 
     function initChart() {
@@ -184,9 +174,7 @@
           animations: { enabled: false }
         },
         series: [{ data: generateCandles() }],
-        plotOptions: {
-          candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } }
-        },
+        plotOptions: { candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } } },
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
@@ -202,9 +190,7 @@
     }
 
     /* -------------------- INIT -------------------- */
-    loadApexCharts()
-      .then(initChart)
-      .catch(err => console.error('[Proton] ApexCharts failed', err));
+    loadApexCharts().then(initChart).catch(err => console.error('[Proton] ApexCharts failed', err));
 
     return container;
   };
