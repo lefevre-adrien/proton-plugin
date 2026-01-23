@@ -28,7 +28,6 @@
           padding: 20px;
           display: block;
           border-radius: 12px;
-          max-width: 800px;
           box-shadow: 0 8px 24px rgba(0,0,0,0.6);
         }
 
