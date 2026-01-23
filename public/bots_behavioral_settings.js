@@ -14,8 +14,8 @@
 
     const FIXED_HEIGHT = 300;
     const CANDLE_COUNT = 50;
-    const PRICE_MIN = 80;
-    const PRICE_MAX = 120;
+    const PRICE_MIN = 0;
+    const PRICE_MAX = 100;
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
