@@ -27,20 +27,6 @@
 
     const chartDiv = container.querySelector('#apex-candlestick');
 
-    /* -------------------- RED BORDER DIV -------------------- */
-    const overlayDiv = document.createElement('div');
-    overlayDiv.style.position = 'absolute';
-    overlayDiv.style.top = '0';
-    overlayDiv.style.left = '0';
-    overlayDiv.style.width = '100%';
-    overlayDiv.style.height = '100%';
-    overlayDiv.style.pointerEvents = 'none';
-    overlayDiv.style.border = '2px solid red';
-    overlayDiv.style.background = 'transparent';
-    overlayDiv.style.zIndex = '9999';
-    chartDiv.appendChild(overlayDiv);
-    /* ------------------------------------------------------ */
-
     /* -------------------- LOAD APEX -------------------- */
     function loadApexCharts() {
       return new Promise((resolve, reject) => {
@@ -176,14 +162,15 @@
       updatePath();
     }
 
-    /* -------------------- CHART -------------------- */
+    /* -------------------- CHART + RED BORDER -------------------- */
     let chart;
+    let overlayDiv;
 
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
       requestAnimationFrame(mountOverlay);
-      // always keep red border on top
-      chartDiv.appendChild(overlayDiv);
+      // ensure overlay always stays on top
+      if (overlayDiv && overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
@@ -210,13 +197,29 @@
 
       chart.render().then(() => {
         mountOverlay();
+
+        // -------------------- RED BORDER DIV --------------------
+        overlayDiv = document.createElement('div');
+        overlayDiv.style.position = 'absolute';
+        overlayDiv.style.top = '0';
+        overlayDiv.style.left = '0';
+        overlayDiv.style.width = '100%';
+        overlayDiv.style.height = '100%';
+        overlayDiv.style.pointerEvents = 'none';
+        overlayDiv.style.border = '2px solid red';
+        overlayDiv.style.background = 'transparent';
+        overlayDiv.style.zIndex = '9999';
+        chartDiv.appendChild(overlayDiv); // append AFTER chart is ready
+        // --------------------------------------------------------
       });
 
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
         mountOverlay();
-        overlayDiv.style.width = chartDiv.clientWidth + 'px';
-        overlayDiv.style.height = chartDiv.clientHeight + 'px';
+        if (overlayDiv) {
+          overlayDiv.style.width = chartDiv.clientWidth + 'px';
+          overlayDiv.style.height = chartDiv.clientHeight + 'px';
+        }
       }).observe(chartDiv);
     }
 
