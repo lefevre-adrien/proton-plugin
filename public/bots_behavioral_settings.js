@@ -1,4 +1,4 @@
-// RIGHT panel: ultra minimal + ApexCharts Candlestick (dark, fixed height, no zoom)
+// RIGHT panel: ultra minimal + ApexCharts Candlestick (dark, fixed height, responsive width, no zoom)
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -39,8 +39,8 @@
       const options = {
         chart: {
           type: 'candlestick',
-          height: fixedHeight, // fixed height in pixels
-          width: chartDiv.clientWidth,
+          height: fixedHeight,   // fixed height
+          width: chartDiv.clientWidth, // initial width matches container
           toolbar: { show: false },
           zoom: { enabled: false },
           background: 'transparent'
@@ -49,7 +49,7 @@
           data: [
             { x: new Date('2026-01-20').getTime(), y: [100, 110, 90, 105] },
             { x: new Date('2026-01-21').getTime(), y: [105, 115, 95, 110] },
-            { x: new Date('2026-01-22').getTime(), y: [110, 120, 100, 108] },
+            { x: new Date('2026-01-22').getTime(), y: [110, 120, 100, 108] }
           ]
         }],
         plotOptions: {
@@ -72,8 +72,19 @@
       const chart = new ApexCharts(chartDiv, options);
       chart.render();
 
-      // Cleanup handle
+      // ResizeObserver: only update width (height fixed)
+      const ro = new ResizeObserver(() => {
+        chart.updateOptions({
+          chart: {
+            width: chartDiv.clientWidth
+          }
+        });
+      });
+      ro.observe(chartDiv);
+
+      // Optional cleanup
       container._protonChartCleanup = () => {
+        ro.disconnect();
         chart.destroy();
       };
     }
