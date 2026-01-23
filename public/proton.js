@@ -43,7 +43,7 @@
           }
 
           .plugin-container { display:flex; flex-direction:row; gap:24px; }
-          @media (max-width:700px) { .plugin-container { flex-direction:column; } }
+          @media (max-width:1024px) { .plugin-container { flex-direction:column; } }
           .left-section { flex:0 0 320px; padding:24px; background:#1f1f1f; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.4); border-left:4px solid #0af; }
           .right-section { flex:1; padding:24px; background:#222; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.4); border-left:4px solid #0af; }
 
