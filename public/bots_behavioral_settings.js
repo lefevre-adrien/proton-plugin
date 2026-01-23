@@ -1,4 +1,4 @@
-// RIGHT panel: minimal + Lightweight Chart (dark, fit, no zoom)
+// RIGHT panel: ultra minimal + Lightweight Chart
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -7,12 +7,10 @@
     container.className = 'right-section';
 
     container.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;flex-direction:column;gap:12px;height:100%;">
         <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
-        <p style="margin:0;color:#cfe8ff;opacity:0.9">
-          Chart preview
-        </p>
-        <div id="tradingview-chart" style="margin-top:12px; height:300px; width:100%;"></div>
+        <p style="margin:0;color:#cfe8ff;opacity:0.9">Chart preview</p>
+        <div id="tradingview-chart" style="flex:1; min-height:200px; width:100%;"></div>
       </div>
     `;
 
@@ -21,12 +19,10 @@
         if (window.LightweightCharts) return resolve();
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js';
-        script.onload = () => {
-          setTimeout(() => {
-            if (window.LightweightCharts) resolve();
-            else reject(new Error('LightweightCharts global not found'));
-          }, 0);
-        };
+        script.onload = () => setTimeout(() => {
+          if (window.LightweightCharts) resolve();
+          else reject(new Error('LightweightCharts global not found'));
+        }, 0);
         script.onerror = reject;
         document.head.appendChild(script);
       });
@@ -40,8 +36,12 @@
           width: chartDiv.clientWidth,
           height: chartDiv.clientHeight,
           layout: {
-            backgroundColor: '#1a1a1a',
+            backgroundColor: 'transparent',
             textColor: '#eee'
+          },
+          grid: {
+            vertLines: { visible: false },
+            horzLines: { visible: false }
           },
           rightPriceScale: {
             borderColor: '#555',
@@ -65,11 +65,7 @@
             mouseWheel: false
           },
           crosshair: {
-            mode: 0 // normal crosshair
-          },
-          grid: {
-            vertLines: { color: '#333' },
-            horzLines: { color: '#333' }
+            mode: 0
           }
         });
 
@@ -87,9 +83,12 @@
           { time: '2026-01-22', open: 110, high: 120, low: 100, close: 108 },
         ]);
 
-        // Optional: make chart responsive to container resize
+        // Make chart fit container without overflow
         new ResizeObserver(() => {
-          chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight });
+          chart.applyOptions({
+            width: chartDiv.clientWidth,
+            height: chartDiv.clientHeight
+          });
         }).observe(chartDiv);
       })
       .catch(err => {
