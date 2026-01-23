@@ -1,4 +1,4 @@
-// RIGHT panel: minimal + Lightweight Chart (dark, fit, no zoom)
+// RIGHT panel: ultra minimal + Lightweight Chart (dark, fit, no zoom)
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -6,42 +6,63 @@
     const container = document.createElement('div');
     container.className = 'right-section';
 
+    // Ensure the container can shrink inside flex row
+    container.style.minWidth = '0';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '12px';
+    container.style.height = '100%';
+
     container.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
-        <p style="margin:0;color:#cfe8ff;opacity:0.9">
-          Chart preview
-        </p>
-        <div id="tradingview-chart" style="margin-top:12px; height:300px; width:100%;"></div>
-      </div>
+      <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
+      <p style="margin:0;color:#cfe8ff;opacity:0.9">Chart preview</p>
+      <div id="tradingview-chart" style="flex:1; min-height:200px; width:100%; overflow:hidden;"></div>
     `;
+
+    const chartDiv = container.querySelector('#tradingview-chart');
 
     function loadLightweightCharts() {
       return new Promise((resolve, reject) => {
         if (window.LightweightCharts) return resolve();
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js';
-        script.onload = () => {
-          setTimeout(() => {
-            if (window.LightweightCharts) resolve();
-            else reject(new Error('LightweightCharts global not found'));
-          }, 0);
-        };
+        script.onload = () => setTimeout(() => {
+          if (window.LightweightCharts) resolve();
+          else reject(new Error('LightweightCharts global not found'));
+        }, 0);
         script.onerror = reject;
         document.head.appendChild(script);
       });
     }
 
-    loadLightweightCharts()
-      .then(() => {
-        const chartDiv = container.querySelector('#tradingview-chart');
+    // Wait until the chartDiv has size before creating chart
+    function waitForSize(el) {
+      return new Promise((resolve, reject) => {
+        const check = () => {
+          const w = el.clientWidth;
+          const h = el.clientHeight;
+          if (w > 0 && h > 0) resolve({ w, h });
+          else requestAnimationFrame(check);
+        };
+        check();
+      });
+    }
 
-        const chart = window.LightweightCharts.createChart(chartDiv, {
-          width: chartDiv.clientWidth,
-          height: chartDiv.clientHeight,
+    loadLightweightCharts()
+      .then(() => waitForSize(chartDiv))
+      .then(({ w, h }) => {
+        const LW = window.LightweightCharts;
+
+        const chart = LW.createChart(chartDiv, {
+          width: w,
+          height: h,
           layout: {
-            backgroundColor: '#1a1a1a',
+            backgroundColor: 'transparent', // let right-section bg show
             textColor: '#eee'
+          },
+          grid: {
+            vertLines: { visible: false },
+            horzLines: { visible: false }
           },
           rightPriceScale: {
             borderColor: '#555',
@@ -53,24 +74,9 @@
             lockVisibleTimeRangeOnResize: true,
             rightOffset: 5
           },
-          handleScroll: {
-            mouseWheel: false,
-            pressedMouseMove: false,
-            horzTouchDrag: false,
-            vertTouchDrag: false
-          },
-          handleScale: {
-            axisPressedMouseMove: false,
-            pinch: false,
-            mouseWheel: false
-          },
-          crosshair: {
-            mode: 0 // normal crosshair
-          },
-          grid: {
-            vertLines: { color: '#333' },
-            horzLines: { color: '#333' }
-          }
+          handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
+          handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
+          crosshair: { mode: 0 }
         });
 
         const candleSeries = chart.addCandlestickSeries({
@@ -87,13 +93,20 @@
           { time: '2026-01-22', open: 110, high: 120, low: 100, close: 108 },
         ]);
 
-        // Optional: make chart responsive to container resize
-        new ResizeObserver(() => {
+        // Make chart responsive
+        const ro = new ResizeObserver(() => {
           chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight });
-        }).observe(chartDiv);
+        });
+        ro.observe(chartDiv);
+
+        // optional cleanup handle
+        container._protonChartCleanup = () => {
+          ro.disconnect();
+          try { chart.remove(); } catch (e) {}
+        };
       })
       .catch(err => {
-        console.error('[Proton] Failed to load LightweightCharts', err);
+        console.error('[Proton] Failed to load or init LightweightCharts', err);
       });
 
     return container;
