@@ -1,4 +1,4 @@
-// RIGHT panel: ultra minimal + ApexCharts Candlestick (dark, fit, no zoom)
+// RIGHT panel: ultra minimal + ApexCharts Candlestick (dark, fixed height, no zoom)
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -13,10 +13,12 @@
     container.style.gap = '12px';
     container.style.height = '100%';
 
+    const fixedHeight = 300; // fixed pixel height for chart
+
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">Chart preview</p>
-      <div id="apex-candlestick" style="height:300px; min-height:200px; width:100%;"></div>
+      <div id="apex-candlestick" style="height:${fixedHeight}px; width:100%;"></div>
     `;
 
     const chartDiv = container.querySelector('#apex-candlestick');
@@ -37,11 +39,11 @@
       const options = {
         chart: {
           type: 'candlestick',
-          height: chartDiv.clientHeight, // use actual div height in pixels
+          height: fixedHeight, // fixed height in pixels
           width: chartDiv.clientWidth,
           toolbar: { show: false },
           zoom: { enabled: false },
-          background: 'transparent',
+          background: 'transparent'
         },
         series: [{
           data: [
@@ -51,9 +53,7 @@
           ]
         }],
         plotOptions: {
-          candlestick: {
-            colors: { upward: '#26a69a', downward: '#ef5350' }
-          }
+          candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } }
         },
         xaxis: {
           type: 'datetime',
@@ -72,19 +72,8 @@
       const chart = new ApexCharts(chartDiv, options);
       chart.render();
 
-      // Make chart responsive
-      const ro = new ResizeObserver(() => {
-        chart.updateOptions({
-          chart: {
-            width: chartDiv.clientWidth,
-            height: chartDiv.clientHeight
-          }
-        });
-      });
-      ro.observe(chartDiv);
-
+      // Cleanup handle
       container._protonChartCleanup = () => {
-        ro.disconnect();
         chart.destroy();
       };
     }
