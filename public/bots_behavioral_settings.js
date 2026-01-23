@@ -88,6 +88,7 @@
     overlayDiv.style.border = '2px solid red';
     overlayDiv.style.background = 'transparent';
     overlayDiv.style.boxSizing = 'border-box';
+    // very large z-index to try to remain above chart internals
     overlayDiv.style.zIndex = '2147483647';
 
     /* -------------------- CHART -------------------- */
@@ -96,9 +97,13 @@
     function updateChart() {
       if (!chart) return;
       chart.updateSeries([{ data: generateCandles() }], false);
-      // ensure overlay stays on top
-      if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
-      else chartDiv.appendChild(overlayDiv);
+      // re-append overlay so it is the last child (keeps it visually on top)
+      if (overlayDiv.parentNode !== chartDiv) {
+        chartDiv.appendChild(overlayDiv);
+      } else {
+        // re-append to move to end of children
+        chartDiv.appendChild(overlayDiv);
+      }
     }
 
     function initChart() {
@@ -125,11 +130,12 @@
       });
 
       chart.render().then(() => {
-        // append overlay after render to stay on top
-        chartDiv.appendChild(overlayDiv);
+        // append overlay after render so it sits on top
+        if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
 
-        // MutationObserver: ApexCharts may replace children
+        // MutationObserver: ApexCharts may replace children — keep overlay as last child
         const mo = new MutationObserver(() => {
+          // small frame delay to allow Apex to do DOM changes, then re-append
           requestAnimationFrame(() => {
             if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
           });
@@ -143,6 +149,11 @@
           if (chart) chart.updateOptions({ chart: { width: chartDiv.clientWidth } }, false);
         });
         ro.observe(chartDiv);
+
+        // ensure overlay is appended (final precaution)
+        requestAnimationFrame(() => {
+          if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
+        });
       });
     }
 
