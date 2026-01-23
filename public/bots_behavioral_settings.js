@@ -21,7 +21,7 @@
       return new Promise((resolve, reject) => {
         if (window.LightweightCharts) return resolve();
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js';
+        script.src = 'https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js';
         script.onload = () => {
           // Wait a microtask to ensure the global is set
           setTimeout(() => {
