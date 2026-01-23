@@ -185,7 +185,10 @@
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
-        yaxis: { labels: { style: { colors: '#aaa' } } }
+        yaxis: {
+          min: PRICE_MIN,   // fix the bottom
+          max: PRICE_MAX,   // fix the top
+          labels: { style: { colors: '#aaa' } } }
       });
 
       chart.render().then(mountOverlay);
