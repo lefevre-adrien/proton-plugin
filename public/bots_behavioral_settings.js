@@ -48,7 +48,6 @@
     ];
 
     function interpolate(t) {
-      // Linear interpolation between control points
       if (t <= points[1].x) {
         const u = (t - points[0].x) / (points[1].x - points[0].x);
         return points[0].y * (1 - u) + points[1].y * u;
@@ -74,7 +73,7 @@
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
-      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN); // start at first point
+      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
 
       curveValues.forEach((v, i) => {
         const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
@@ -88,7 +87,7 @@
           y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
         });
 
-        price = close; // move to next candle
+        price = close;
       });
 
       return candles;
@@ -186,12 +185,28 @@
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
         yaxis: {
-          min: PRICE_MIN,   // fix the bottom
-          max: PRICE_MAX,   // fix the top
-          labels: { style: { colors: '#aaa' } } }
+          min: PRICE_MIN,
+          max: PRICE_MAX,
+          labels: { style: { colors: '#aaa' } }
+        }
       });
 
-      chart.render().then(mountOverlay);
+      chart.render().then(() => {
+        mountOverlay();
+
+        // -------------------- RED BORDER OVERLAY DIV --------------------
+        const overlayDiv = document.createElement('div');
+        overlayDiv.style.position = 'absolute';
+        overlayDiv.style.top = '0';
+        overlayDiv.style.left = '0';
+        overlayDiv.style.width = '100%';
+        overlayDiv.style.height = '100%';
+        overlayDiv.style.pointerEvents = 'none';
+        overlayDiv.style.border = '2px solid red';
+        overlayDiv.style.background = 'transparent';
+        chartDiv.appendChild(overlayDiv);
+        // -------------------------------------------------------------
+      });
 
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
