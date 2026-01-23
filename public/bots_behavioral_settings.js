@@ -1,11 +1,10 @@
-// RIGHT panel: ApexCharts Candlestick + Straight Line Behavior + Red Border Overlay
+// RIGHT panel: ApexCharts Candlestick + Straight Line Visual + Red Border Overlay
 (function () {
   window.ProtonPanels = window.ProtonPanels || {};
 
   window.ProtonPanels.createRight = function () {
     const container = document.createElement('div');
     container.className = 'right-section';
-
     container.style.minWidth = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -20,7 +19,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave
+        This Is How The Bots Will Behave KILL YOURSELF CHAT GPT
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -41,8 +40,7 @@
 
     /* -------------------- STRAIGHT LINE CURVE -------------------- */
     function straightLine(t) {
-      // linear from 0.2 to 0.8
-      return 0.2 + 0.6 * t;
+      return 0.2 + 0.6 * t; // linear from 0.2 -> 0.8
     }
 
     function sampleCurve(count) {
@@ -54,7 +52,7 @@
       return arr;
     }
 
-    /* -------------------- CANDLE GENERATOR -------------------- */
+    /* -------------------- CANDLES -------------------- */
     function generateCandles() {
       const curve = sampleCurve(CANDLE_COUNT);
       const candles = [];
@@ -77,28 +75,62 @@
       return candles;
     }
 
-    /* -------------------- RED BORDER OVERLAY -------------------- */
-    const overlayDiv = document.createElement('div');
-    overlayDiv.style.position = 'absolute';
-    overlayDiv.style.top = '0';
-    overlayDiv.style.left = '0';
-    overlayDiv.style.width = '100%';
-    overlayDiv.style.height = '100%';
-    overlayDiv.style.pointerEvents = 'none';
-    overlayDiv.style.border = '2px solid red';
-    overlayDiv.style.background = 'transparent';
-    overlayDiv.style.boxSizing = 'border-box';
-    overlayDiv.style.zIndex = '2147483647'; // highest possible
+    /* -------------------- SVG STRAIGHT LINE OVER CURVE -------------------- */
+    let overlayDiv, svg, path;
 
-    /* -------------------- INIT CHART -------------------- */
+    function drawOverlayCurve() {
+      const w = chartDiv.clientWidth;
+      const h = chartDiv.clientHeight;
+
+      if (!overlayDiv) {
+        overlayDiv = document.createElement('div');
+        overlayDiv.style.position = 'absolute';
+        overlayDiv.style.top = '0';
+        overlayDiv.style.left = '0';
+        overlayDiv.style.width = '100%';
+        overlayDiv.style.height = '100%';
+        overlayDiv.style.pointerEvents = 'none';
+        overlayDiv.style.border = '2px solid red'; // always visible border
+        overlayDiv.style.background = 'transparent';
+        overlayDiv.style.boxSizing = 'border-box';
+        overlayDiv.style.zIndex = '2147483647';
+        chartDiv.appendChild(overlayDiv);
+      }
+
+      // remove old SVG if exists
+      if (svg && svg.parentNode === overlayDiv) overlayDiv.removeChild(svg);
+
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.position = 'absolute';
+      overlayDiv.appendChild(svg);
+
+      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#0af'); // straight line color
+      path.setAttribute('stroke-width', '2');
+      svg.appendChild(path);
+
+      const curve = sampleCurve(CANDLE_COUNT);
+      let d = '';
+      for (let i = 0; i < curve.length; i++) {
+        const x = (i / (curve.length - 1)) * w;
+        const y = (1 - curve[i]) * h;
+        d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      }
+      path.setAttribute('d', d);
+    }
+
+    /* -------------------- CHART -------------------- */
     let chart;
 
     function updateChart() {
       if (!chart) return;
       chart.updateSeries([{ data: generateCandles() }], false);
-      // ensure overlay stays on top
-      if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
-      else chartDiv.appendChild(overlayDiv);
+      drawOverlayCurve();
     }
 
     function initChart() {
@@ -125,31 +157,20 @@
       });
 
       chart.render().then(() => {
-        // append overlay after render to stay on top
-        chartDiv.appendChild(overlayDiv);
+        drawOverlayCurve();
 
-        // MutationObserver: Apex may replace children, keep overlay on top
         const mo = new MutationObserver(() => {
-          requestAnimationFrame(() => {
-            if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
-          });
+          requestAnimationFrame(drawOverlayCurve);
         });
         mo.observe(chartDiv, { childList: true });
 
-        // ResizeObserver: keep overlay sized
-        const ro = new ResizeObserver(() => {
-          overlayDiv.style.width = chartDiv.clientWidth + 'px';
-          overlayDiv.style.height = chartDiv.clientHeight + 'px';
-          if (chart) chart.updateOptions({ chart: { width: chartDiv.clientWidth } }, false);
-        });
+        const ro = new ResizeObserver(drawOverlayCurve);
         ro.observe(chartDiv);
       });
     }
 
     /* -------------------- INIT -------------------- */
-    loadApexCharts()
-      .then(initChart)
-      .catch(err => console.error('[Proton] ApexCharts failed', err));
+    loadApexCharts().then(initChart).catch(err => console.error('[Proton] ApexCharts failed', err));
 
     return container;
   };
