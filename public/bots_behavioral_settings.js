@@ -98,7 +98,7 @@
     let svg, path;
 
     function mountOverlay() {
-      const inner = chartDiv.querySelector('.apexcharts-inner.apexcharts-graphical');
+      const inner = chartDiv.querySelector('.apexcharts-grid');
       if (!inner) return;
 
       if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
