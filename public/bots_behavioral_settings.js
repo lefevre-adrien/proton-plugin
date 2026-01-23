@@ -48,7 +48,7 @@
     ];
 
     function interpolate(t) {
-      // Linear interpolation between points
+      // Linear interpolation between control points
       if (t <= points[1].x) {
         const u = (t - points[0].x) / (points[1].x - points[0].x);
         return points[0].y * (1 - u) + points[1].y * u;
@@ -74,12 +74,12 @@
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
-      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
+      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN); // start at first point
 
       curveValues.forEach((v, i) => {
-        const target = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
+        const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = target;
+        const close = targetPrice;
         const high = Math.max(open, close) + Math.random() * 0.3;
         const low = Math.min(open, close) - Math.random() * 0.3;
 
@@ -88,7 +88,7 @@
           y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
         });
 
-        price = close;
+        price = close; // move to next candle
       });
 
       return candles;
@@ -98,74 +98,69 @@
     let svg, path;
 
     function mountOverlay() {
-      // Retry until .apexcharts-grid exists
-      const tryMount = () => {
-        const grid = chartDiv.querySelector('.apexcharts-grid');
-        if (!grid) return requestAnimationFrame(tryMount);
+      const inner = chartDiv.querySelector('.apexcharts-inner.apexcharts-graphical');
+      if (!inner) return;
 
-        if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+      if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
 
-        const { width, height } = grid.getBoundingClientRect();
-        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        svg.style.width = '100%';
-        svg.style.height = '100%';
-        svg.style.position = 'absolute';
-        svg.style.top = '0';
-        svg.style.left = '0';
-        svg.style.pointerEvents = 'auto';
-        grid.style.position = 'relative';
-        grid.appendChild(svg);
+      const { width, height } = inner.getBoundingClientRect();
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.position = 'absolute';
+      svg.style.top = '0';
+      svg.style.left = '0';
+      svg.style.pointerEvents = 'auto';
+      inner.style.position = 'relative';
+      inner.appendChild(svg);
 
-        path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#0af');
-        path.setAttribute('stroke-width', '2');
-        svg.appendChild(path);
+      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#0af');
+      path.setAttribute('stroke-width', '2');
+      svg.appendChild(path);
 
-        function updatePath() {
-          let d = `M ${points[0].x * width} ${(1 - points[0].y) * height}`;
-          for (let i = 1; i < points.length; i++) {
-            d += ` L ${points[i].x * width} ${(1 - points[i].y) * height}`;
-          }
-          path.setAttribute('d', d);
+      function updatePath() {
+        let d = `M ${points[0].x * width} ${(1 - points[0].y) * height}`;
+        for (let i = 1; i < points.length; i++) {
+          d += ` L ${points[i].x * width} ${(1 - points[i].y) * height}`;
+        }
+        path.setAttribute('d', d);
+      }
+
+      function makeHandle(pt) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('r', 7);
+        c.setAttribute('fill', '#0af');
+        c.style.cursor = 'pointer';
+        svg.appendChild(c);
+
+        let dragging = false;
+
+        function sync() {
+          c.setAttribute('cx', pt.x * width);
+          c.setAttribute('cy', (1 - pt.y) * height);
+          updatePath();
         }
 
-        function makeHandle(pt) {
-          const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          c.setAttribute('r', 7);
-          c.setAttribute('fill', '#0af');
-          c.style.cursor = 'pointer';
-          svg.appendChild(c);
-
-          let dragging = false;
-
-          function sync() {
-            c.setAttribute('cx', pt.x * width);
-            c.setAttribute('cy', (1 - pt.y) * height);
-            updatePath();
-          }
-
-          c.addEventListener('mousedown', () => dragging = true);
-          window.addEventListener('mouseup', () => dragging = false);
-          window.addEventListener('mousemove', e => {
-            if (!dragging) return;
-            const r = svg.getBoundingClientRect();
-            pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-            pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-            sync();
-            updateChart();
-          });
-
+        c.addEventListener('mousedown', () => dragging = true);
+        window.addEventListener('mouseup', () => dragging = false);
+        window.addEventListener('mousemove', e => {
+          if (!dragging) return;
+          const r = svg.getBoundingClientRect();
+          pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+          pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
           sync();
-        }
+          updateChart();
+        });
 
-        makeHandle(points[1]);
-        makeHandle(points[2]);
-        updatePath();
-      };
+        sync();
+      }
 
-      tryMount();
+      makeHandle(points[1]);
+      makeHandle(points[2]);
+      updatePath();
     }
 
     /* -------------------- CHART -------------------- */
@@ -191,13 +186,12 @@
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
         yaxis: {
-          min: PRICE_MIN,
-          max: PRICE_MAX,
-          labels: { style: { colors: '#aaa' } }
-        }
+          min: PRICE_MIN,   // fix the bottom
+          max: PRICE_MAX,   // fix the top
+          labels: { style: { colors: '#aaa' } } }
       });
 
-      chart.render().then(() => mountOverlay());
+      chart.render().then(mountOverlay);
 
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
