@@ -109,6 +109,7 @@
       `
 
       const wrapper = document.createElement('div')
+      wrapper.style.padding = '24px'
 
       wrapper.innerHTML = `
         <!-- Account Selection -->
