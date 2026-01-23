@@ -14,6 +14,7 @@
 
     const FIXED_HEIGHT = 300;
     const CANDLE_COUNT = 50;
+    const NOISE = 0.35; // 👈 small randomness, controlled
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
@@ -41,10 +42,10 @@
     /* -------------------- BEZIER CURVE -------------------- */
 
     const curve = {
-      p0: { x: 0, y: 0.5 },
-      p1: { x: 0.3, y: 0.2 },
-      p2: { x: 0.7, y: 0.8 },
-      p3: { x: 1, y: 0.5 }
+      p0: { x: 0, y: 0 },     // ❌ NOT editable
+      p1: { x: 0.25, y: 0.3 },
+      p2: { x: 0.6, y: 0.8 },
+      p3: { x: 1, y: 0.5 }   // ✅ editable
     };
 
     function bezier(t, p0, p1, p2, p3) {
@@ -58,17 +59,17 @@
     }
 
     function sampleCurve(count) {
-      const values = [];
+      const out = [];
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
-        values.push(
+        out.push(
           bezier(t, curve.p0.y, curve.p1.y, curve.p2.y, curve.p3.y)
         );
       }
-      return values;
+      return out;
     }
 
-    /* -------------------- DETERMINISTIC CANDLES -------------------- */
+    /* -------------------- CANDLE GENERATION -------------------- */
 
     function generateCandles() {
       const values = sampleCurve(CANDLE_COUNT);
@@ -76,12 +77,13 @@
       let price = 100;
 
       values.forEach((v, i) => {
-        const delta = (v - 0.5) * 10;
+        const drift = (v - 0.5) * 8;
+        const noise = (Math.random() - 0.5) * NOISE;
 
         const open = price;
-        const close = open + delta;
-        const high = Math.max(open, close);
-        const low = Math.min(open, close);
+        const close = open + drift + noise;
+        const high = Math.max(open, close) + Math.abs(noise) * 0.6;
+        const low = Math.min(open, close) - Math.abs(noise) * 0.6;
 
         price = close;
 
@@ -101,16 +103,7 @@
 
     /* -------------------- SVG OVERLAY -------------------- */
 
-    let svg = null;
-    let path = null;
-
-    function destroyBezierOverlay() {
-      if (svg && svg.parentNode) {
-        svg.parentNode.removeChild(svg);
-      }
-      svg = null;
-      path = null;
-    }
+    let svg, path, handles = [];
 
     function mountBezierOverlay() {
       const inner = chartDiv.querySelector(
@@ -118,30 +111,26 @@
       );
       if (!inner) return;
 
-      destroyBezierOverlay();
-
-      const rect = inner.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-
       inner.style.position = 'relative';
 
-      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const { width, height } = inner.getBoundingClientRect();
+
+      if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.style.position = 'absolute';
+        svg.style.inset = '0';
+        svg.style.pointerEvents = 'auto';
+        svg.style.zIndex = '10';
+        inner.appendChild(svg);
+
+        path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#0af');
+        path.setAttribute('stroke-width', '2');
+        svg.appendChild(path);
+      }
+
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      svg.style.position = 'absolute';
-      svg.style.top = '0';
-      svg.style.left = '0';
-      svg.style.width = '100%';
-      svg.style.height = '100%';
-      svg.style.pointerEvents = 'auto';
-
-      inner.appendChild(svg);
-
-      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', '#0af');
-      path.setAttribute('stroke-width', '2');
-      svg.appendChild(path);
 
       function updatePath() {
         path.setAttribute(
@@ -159,6 +148,7 @@
         c.setAttribute('fill', '#0af');
         c.style.cursor = 'pointer';
         svg.appendChild(c);
+        handles.push(c);
 
         let dragging = false;
 
@@ -168,8 +158,13 @@
           updatePath();
         }
 
-        c.addEventListener('mousedown', () => dragging = true);
+        c.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          dragging = true;
+        });
+
         window.addEventListener('mouseup', () => dragging = false);
+
         window.addEventListener('mousemove', e => {
           if (!dragging) return;
           const r = svg.getBoundingClientRect();
@@ -182,8 +177,13 @@
         sync();
       }
 
+      handles.forEach(h => h.remove());
+      handles = [];
+
       makeHandle(curve.p1);
       makeHandle(curve.p2);
+      makeHandle(curve.p3);
+
       updatePath();
     }
 
@@ -193,11 +193,6 @@
 
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
-
-      // Apex nukes DOM → reattach overlay
-      requestAnimationFrame(() => {
-        mountBezierOverlay();
-      });
     }
 
     function initChart() {
@@ -219,18 +214,14 @@
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
-        yaxis: {
-          labels: { style: { colors: '#aaa' } }
-        }
+        yaxis: { labels: { style: { colors: '#aaa' } } }
       });
 
       chart.render().then(() => {
         mountBezierOverlay();
 
         new ResizeObserver(() => {
-          chart.updateOptions({
-            chart: { width: chartDiv.clientWidth }
-          });
+          chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
           mountBezierOverlay();
         }).observe(chartDiv);
       });
