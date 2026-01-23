@@ -11,7 +11,7 @@
       <div style="display:flex;flex-direction:column;gap:12px;">
         <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
         <p style="margin:0;color:#cfe8ff;opacity:0.9">
-          Configure per-bot behavior and parameters here.
+          Configure The Bot Wallets Behavior Over Time.
         </p>
         <div id="tradingview-chart" style="margin-top:12px; height:300px;"></div>
       </div>
