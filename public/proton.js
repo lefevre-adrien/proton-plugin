@@ -22,62 +22,79 @@
       const style = document.createElement('style')
       style.textContent = `
         :host {
-          font-family: system-ui, sans-serif;
-          color: #fff;
-          background: #121212;
-          padding: 16px;
+          font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+          color: #eee;
+          background: #1a1a1a;
+          padding: 20px;
           display: block;
-          border-radius: 10px;
-          max-width: 400px;
+          border-radius: 12px;
+          max-width: 420px;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.5);
         }
 
         select, input, button {
-          background: #1f1f1f;
-          color: #fff;
-          border: 1px solid #333;
-          border-radius: 6px;
-          padding: 8px;
-          margin-bottom: 12px;
+          background: #2c2c2c;
+          color: #eee;
+          border: 1px solid #444;
+          border-radius: 8px;
+          padding: 10px;
+          margin-bottom: 14px;
           width: 100%;
           box-sizing: border-box;
+          font-size: 14px;
+        }
+
+        select:hover, input:hover, button:hover {
+          background: #3a3a3a;
         }
 
         button {
           cursor: pointer;
-          transition: background 0.2s;
+          transition: all 0.2s ease;
         }
 
         button:hover {
-          background: #333;
+          background: #555;
+          transform: translateY(-1px);
         }
 
         .row {
           display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
+          gap: 10px;
+          margin-bottom: 16px;
         }
 
         .collapsible {
           border: 1px solid #333;
-          border-radius: 6px;
-          margin-bottom: 12px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          overflow: hidden;
+          transition: all 0.3s ease;
         }
 
         .collapsible-header {
-          padding: 8px;
-          background: #1f1f1f;
+          padding: 12px 16px;
+          background: #2a2a2a;
           cursor: pointer;
           user-select: none;
+          font-weight: 600;
+          transition: background 0.2s;
+        }
+
+        .collapsible-header:hover {
+          background: #3a3a3a;
         }
 
         .collapsible-content {
-          display: none;
-          padding: 8px;
-          border-top: 1px solid #333;
+          max-height: 0;
+          padding: 0 16px;
+          transition: all 0.3s ease;
+          overflow: hidden;
         }
 
         .collapsible.open .collapsible-content {
-          display: block;
+          max-height: 500px; /* enough to show content */
+          padding: 12px 16px;
         }
 
         label {
@@ -87,7 +104,7 @@
         }
 
         .number-input {
-          width: 100px;
+          width: 120px;
         }
       `
 
@@ -139,7 +156,7 @@
       shadow.appendChild(style)
       shadow.appendChild(wrapper)
 
-      // Collapsible logic (just toggle visibility)
+      // Collapsible toggle with animation
       const collapsibles = shadow.querySelectorAll('.collapsible')
       collapsibles.forEach(section => {
         const header = section.querySelector('.collapsible-header')
