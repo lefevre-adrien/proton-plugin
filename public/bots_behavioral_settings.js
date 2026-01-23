@@ -20,7 +20,6 @@
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
         This Is How The Bots Will Behave
       </p>
-
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;"></div>
     `;
 
@@ -39,7 +38,7 @@
       });
     }
 
-    /* -------------------- BEZIER -------------------- */
+    /* -------------------- BEZIER CURVE -------------------- */
 
     const curve = {
       p0: { x: 0, y: 0.5 },
@@ -59,14 +58,14 @@
     }
 
     function sampleCurve(count) {
-      const out = [];
+      const values = [];
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
-        out.push(
+        values.push(
           bezier(t, curve.p0.y, curve.p1.y, curve.p2.y, curve.p3.y)
         );
       }
-      return out;
+      return values;
     }
 
     /* -------------------- DETERMINISTIC CANDLES -------------------- */
@@ -74,11 +73,10 @@
     function generateCandles() {
       const values = sampleCurve(CANDLE_COUNT);
       const candles = [];
-
       let price = 100;
 
       values.forEach((v, i) => {
-        const delta = (v - 0.5) * 10; // curve controls direction + strength
+        const delta = (v - 0.5) * 10;
 
         const open = price;
         const close = open + delta;
@@ -88,12 +86,12 @@
         price = close;
 
         candles.push({
-          x: Date.now() + i * 86_400_000,
+          x: Date.now() + i * 86400000,
           y: [
-            open.toFixed(2),
-            high.toFixed(2),
-            low.toFixed(2),
-            close.toFixed(2)
+            +open.toFixed(2),
+            +high.toFixed(2),
+            +low.toFixed(2),
+            +close.toFixed(2)
           ]
         });
       });
@@ -103,7 +101,16 @@
 
     /* -------------------- SVG OVERLAY -------------------- */
 
-    let svg, path;
+    let svg = null;
+    let path = null;
+
+    function destroyBezierOverlay() {
+      if (svg && svg.parentNode) {
+        svg.parentNode.removeChild(svg);
+      }
+      svg = null;
+      path = null;
+    }
 
     function mountBezierOverlay() {
       const inner = chartDiv.querySelector(
@@ -111,18 +118,23 @@
       );
       if (!inner) return;
 
-      const { width, height } = inner.getBoundingClientRect();
+      destroyBezierOverlay();
+
+      const rect = inner.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      inner.style.position = 'relative';
 
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      svg.style.width = '100%';
-      svg.style.height = '100%';
       svg.style.position = 'absolute';
       svg.style.top = '0';
       svg.style.left = '0';
+      svg.style.width = '100%';
+      svg.style.height = '100%';
       svg.style.pointerEvents = 'auto';
 
-      inner.style.position = 'relative';
       inner.appendChild(svg);
 
       path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -134,12 +146,10 @@
       function updatePath() {
         path.setAttribute(
           'd',
-          `
-          M ${curve.p0.x * width} ${(1 - curve.p0.y) * height}
-          C ${curve.p1.x * width} ${(1 - curve.p1.y) * height},
-            ${curve.p2.x * width} ${(1 - curve.p2.y) * height},
-            ${curve.p3.x * width} ${(1 - curve.p3.y) * height}
-        `
+          `M ${curve.p0.x * width} ${(1 - curve.p0.y) * height}
+           C ${curve.p1.x * width} ${(1 - curve.p1.y) * height},
+             ${curve.p2.x * width} ${(1 - curve.p2.y) * height},
+             ${curve.p3.x * width} ${(1 - curve.p3.y) * height}`
         );
       }
 
@@ -183,6 +193,11 @@
 
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
+
+      // Apex nukes DOM → reattach overlay
+      requestAnimationFrame(() => {
+        mountBezierOverlay();
+      });
     }
 
     function initChart() {
@@ -204,10 +219,21 @@
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
-        yaxis: { labels: { style: { colors: '#aaa' } } }
+        yaxis: {
+          labels: { style: { colors: '#aaa' } }
+        }
       });
 
-      chart.render().then(mountBezierOverlay);
+      chart.render().then(() => {
+        mountBezierOverlay();
+
+        new ResizeObserver(() => {
+          chart.updateOptions({
+            chart: { width: chartDiv.clientWidth }
+          });
+          mountBezierOverlay();
+        }).observe(chartDiv);
+      });
     }
 
     /* -------------------- INIT -------------------- */
