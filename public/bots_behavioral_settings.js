@@ -20,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE
+        This Is How The Bots Will Behave HERE 2
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -98,7 +98,7 @@
     let svg, path;
 
     function mountOverlay() {
-      const inner = chartDiv.querySelector('.apexcharts-inner.apexcharts-graphical');
+      const inner = chartDiv.querySelector('.apexcharts-grid');
       if (!inner) return;
 
       if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
