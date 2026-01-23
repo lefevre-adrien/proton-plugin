@@ -14,6 +14,7 @@
 
     const FIXED_HEIGHT = 300;
     const CANDLE_COUNT = 50;
+    const INFLUENCE = 12;
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
@@ -66,7 +67,7 @@
       const candles = [];
 
       curveValues.forEach((v, i) => {
-        const delta = (v - 0.5) * 6; // curve-driven direction
+        const delta = (v - 0.5) * INFLUENCE;
         const smallNoise = (Math.random() - 0.5) * 1.5; // tiny randomness
 
         const open = price;
