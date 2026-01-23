@@ -41,10 +41,10 @@
 
     /* -------------------- CONTROL POINTS -------------------- */
     const points = [
-      { x: 0, y: 0 },      // fixed start
-      { x: 0.3, y: 0.3 },  // draggable
-      { x: 0.7, y: 0.7 },  // draggable
-      { x: 1, y: 0.5 }     // fixed end
+      { x: 0, y: 0 },
+      { x: 0.3, y: 0.3 },
+      { x: 0.7, y: 0.7 },
+      { x: 1, y: 0.5 }
     ];
 
     function interpolate(t) {
@@ -164,9 +164,13 @@
 
     /* -------------------- CHART -------------------- */
     let chart;
+    let overlayDiv;
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
       requestAnimationFrame(mountOverlay);
+
+      // keep overlay on top
+      if (overlayDiv) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
@@ -195,7 +199,7 @@
         mountOverlay();
 
         // -------------------- RED BORDER OVERLAY DIV --------------------
-        const overlayDiv = document.createElement('div');
+        overlayDiv = document.createElement('div');
         overlayDiv.style.position = 'absolute';
         overlayDiv.style.top = '0';
         overlayDiv.style.left = '0';
@@ -204,6 +208,7 @@
         overlayDiv.style.pointerEvents = 'none';
         overlayDiv.style.border = '2px solid red';
         overlayDiv.style.background = 'transparent';
+        overlayDiv.style.zIndex = '9999';
         chartDiv.appendChild(overlayDiv);
         // -------------------------------------------------------------
       });
@@ -211,6 +216,9 @@
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
         mountOverlay();
+
+        if (overlayDiv) overlayDiv.style.width = chartDiv.clientWidth + 'px';
+        if (overlayDiv) overlayDiv.style.height = chartDiv.clientHeight + 'px';
       }).observe(chartDiv);
     }
 
