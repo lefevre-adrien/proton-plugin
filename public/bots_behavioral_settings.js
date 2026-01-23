@@ -1,4 +1,4 @@
-// RIGHT panel: ApexCharts Candlestick + Overlay Div (no bezier, red border overlay)
+// RIGHT panel: ApexCharts Candlestick + Straight Line Behavior + Red Border Overlay
 (function () {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -20,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE 7
+        This Is How The Bots Will Behave FUCK YOU
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -39,20 +39,33 @@
       });
     }
 
-    /* -------------------- CANDLES (simple deterministic-ish generator with small randomness) -------------------- */
+    /* -------------------- STRAIGHT LINE BEHAVIOR -------------------- */
+    function straightLine(t) {
+      // t in [0,1] -> linear rise from 0.2 to 0.8
+      return 0.2 + 0.6 * t;
+    }
+
+    function sampleCurve(count) {
+      const arr = [];
+      for (let i = 0; i < count; i++) {
+        const t = count === 1 ? 0 : i / (count - 1);
+        arr.push(straightLine(t));
+      }
+      return arr;
+    }
+
+    /* -------------------- CANDLE GENERATOR -------------------- */
     function generateCandles() {
+      const curve = sampleCurve(CANDLE_COUNT);
       const candles = [];
-      // start roughly mid-range
-      let price = (PRICE_MIN + PRICE_MAX) / 2;
+      let price = PRICE_MIN + curve[0] * (PRICE_MAX - PRICE_MIN);
 
       for (let i = 0; i < CANDLE_COUNT; i++) {
-        // small deterministic-ish movement + tiny randomness
-        const drift = Math.sin(i * 0.15) * 0.6; // gentle wave
-        const noise = (Math.random() - 0.5) * 0.6; // small randomness
+        const targetPrice = PRICE_MIN + curve[i] * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = Math.min(PRICE_MAX, Math.max(PRICE_MIN, open + drift + noise));
-        const high = Math.max(open, close) + Math.random() * 0.4;
-        const low = Math.min(open, close) - Math.random() * 0.4;
+        const close = targetPrice + (Math.random() - 0.5) * 0.2;
+        const high = Math.max(open, close) + Math.random() * 0.3;
+        const low = Math.min(open, close) - Math.random() * 0.3;
 
         candles.push({
           x: Date.now() + i * 86400000,
@@ -64,20 +77,18 @@
       return candles;
     }
 
-    /* -------------------- RED BORDER OVERLAY (no bezier/svg) -------------------- */
-    // Create overlay div now (but it will be appended after chart render to ensure it's on top)
+    /* -------------------- RED BORDER OVERLAY -------------------- */
     const overlayDiv = document.createElement('div');
     overlayDiv.style.position = 'absolute';
     overlayDiv.style.top = '0';
     overlayDiv.style.left = '0';
     overlayDiv.style.width = '100%';
     overlayDiv.style.height = '100%';
-    overlayDiv.style.pointerEvents = 'none'; // do not block chart interactions
+    overlayDiv.style.pointerEvents = 'none';
     overlayDiv.style.border = '2px solid red';
     overlayDiv.style.background = 'transparent';
     overlayDiv.style.boxSizing = 'border-box';
-    overlayDiv.style.zIndex = '2147483647'; // very high z-index
-    // Note: we'll append overlayDiv after chart.render() so it sits above Apex internals.
+    overlayDiv.style.zIndex = '2147483647';
 
     /* -------------------- CHART -------------------- */
     let chart;
@@ -85,7 +96,7 @@
     function updateChart() {
       if (!chart) return;
       chart.updateSeries([{ data: generateCandles() }], false);
-      // Re-append overlay to ensure it stays last child on chartDiv
+      // ensure overlay stays on top
       if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
       else chartDiv.appendChild(overlayDiv);
     }
@@ -114,29 +125,24 @@
       });
 
       chart.render().then(() => {
-        // append overlay after render so it sits on top
-        if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
+        // append overlay after render to stay on top
+        chartDiv.appendChild(overlayDiv);
 
-        // MutationObserver: ApexCharts may replace children — keep overlay as last child
+        // MutationObserver: ApexCharts may replace children
         const mo = new MutationObserver(() => {
-          // small frame delay to allow Apex internal changes
           requestAnimationFrame(() => {
             if (overlayDiv.parentNode !== chartDiv) chartDiv.appendChild(overlayDiv);
           });
         });
         mo.observe(chartDiv, { childList: true });
 
-        // ResizeObserver: keep overlay size in sync with chartDiv
+        // ResizeObserver: keep overlay size in sync
         const ro = new ResizeObserver(() => {
           overlayDiv.style.width = chartDiv.clientWidth + 'px';
           overlayDiv.style.height = chartDiv.clientHeight + 'px';
-          // In case chart needs update on resize
           if (chart) chart.updateOptions({ chart: { width: chartDiv.clientWidth } }, false);
         });
         ro.observe(chartDiv);
-
-        // keep overlay on top initially
-        chartDiv.appendChild(overlayDiv);
       });
     }
 
