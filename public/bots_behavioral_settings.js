@@ -5,6 +5,8 @@
   window.ProtonPanels.createRight = function () {
     const container = document.createElement('div');
     container.className = 'right-section';
+
+    // layout
     container.style.minWidth = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -18,9 +20,7 @@
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
-      <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE 4
-      </p>
+      <p style="margin:0;color:#cfe8ff;opacity:0.9">This Is How The Bots Will Behave</p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
 
@@ -32,58 +32,68 @@
         if (window.ApexCharts) return resolve();
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js';
-        script.onload = resolve;
+        script.onload = () => resolve();
         script.onerror = reject;
         document.head.appendChild(script);
       });
     }
 
     /* -------------------- CONTROL POINTS -------------------- */
+    // p0 is fixed at (0,0). p3 is fixed at (1,0.5) but you can adjust
     const points = [
-      { x: 0, y: 0 },      // fixed start
-      { x: 0.3, y: 0.3 },  // draggable
-      { x: 0.7, y: 0.7 },  // draggable
+      { x: 0, y: 0 },      // fixed start (user requested)
+      { x: 0.25, y: 0.25 },// draggable
+      { x: 0.75, y: 0.75 },// draggable
       { x: 1, y: 0.5 }     // fixed end
     ];
 
-    function interpolate(t) {
+    function interpolateLinear(t) {
+      // piecewise linear between the four control points (p0->p1->p2->p3)
       if (t <= points[1].x) {
-        const u = (t - points[0].x) / (points[1].x - points[0].x);
+        const u = (t - points[0].x) / (points[1].x - points[0].x || 1);
         return points[0].y * (1 - u) + points[1].y * u;
       } else if (t <= points[2].x) {
-        const u = (t - points[1].x) / (points[2].x - points[1].x);
+        const u = (t - points[1].x) / (points[2].x - points[1].x || 1);
         return points[1].y * (1 - u) + points[2].y * u;
       } else {
-        const u = (t - points[2].x) / (points[3].x - points[2].x);
+        const u = (t - points[2].x) / (points[3].x - points[2].x || 1);
         return points[2].y * (1 - u) + points[3].y * u;
       }
     }
 
     function sampleCurve(count) {
-      const values = [];
+      const out = [];
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
-        values.push(interpolate(t));
+        out.push(interpolateLinear(t));
       }
-      return values;
+      return out;
     }
 
     /* -------------------- CANDLES -------------------- */
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
+      // Start price aligned with first point so no offset
       let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
 
       curveValues.forEach((v, i) => {
-        const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
+        const target = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
+        // tiny randomness only
+        const noise = (Math.random() - 0.5) * 0.4;
         const open = price;
-        const close = targetPrice;
-        const high = Math.max(open, close) + Math.random() * 0.3;
-        const low = Math.min(open, close) - Math.random() * 0.3;
+        const close = target + noise;
+        const high = Math.max(open, close) + Math.random() * 0.2;
+        const low = Math.min(open, close) - Math.random() * 0.2;
 
         candles.push({
           x: Date.now() + i * 86400000,
-          y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
+          y: [
+            +open.toFixed(2),
+            +high.toFixed(2),
+            +low.toFixed(2),
+            +close.toFixed(2)
+          ]
         });
 
         price = close;
@@ -92,84 +102,154 @@
       return candles;
     }
 
-    /* -------------------- SVG OVERLAY -------------------- */
-    let svg, path;
+    /* -------------------- SVG OVERLAY (positioned using chart internals) -------------------- */
+    let overlay = {
+      svg: null,
+      path: null,
+      handles: []
+    };
 
-    function mountOverlay() {
-      const grid = chartDiv.querySelector('.apexcharts-grid');
-      if (!grid) return;
+    function createOverlayUsingChartGlobals(ch) {
+      // ensure globals present
+      const g = ch.w && ch.w.globals;
+      if (!g) return false;
 
-      const xPad = chart.w.globals.gridPad.left;
-      const yPad = chart.w.globals.gridPad.top;
-      const plotW = chart.w.globals.gridWidth;
-      const plotH = chart.w.globals.gridHeight;
+      // plot area metrics
+      const gridLeft = g.gridPad && g.gridPad.left ? g.gridPad.left : 0;
+      const gridTop = g.gridPad && g.gridPad.top ? g.gridPad.top : 0;
+      const plotW = g.gridWidth || (chartDiv.clientWidth - (g.gridPad ? (g.gridPad.left + g.gridPad.right) : 0));
+      const plotH = g.gridHeight || (chartDiv.clientHeight - (g.gridPad ? (g.gridPad.top + g.gridPad.bottom) : 0));
 
-      if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+      // remove existing overlay if any
+      if (overlay.svg && overlay.svg.parentNode) overlay.svg.parentNode.removeChild(overlay.svg);
+      overlay = { svg: null, path: null, handles: [] };
 
-      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      // create svg sized to plot area, positioned inside chartDiv (absolute)
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', `0 0 ${plotW} ${plotH}`);
-      svg.style.width = `${plotW}px`;
-      svg.style.height = `${plotH}px`;
       svg.style.position = 'absolute';
-      svg.style.top = `${yPad}px`;
-      svg.style.left = `${xPad}px`;
+      svg.style.left = gridLeft + 'px';
+      svg.style.top = gridTop + 'px';
+      svg.style.width = plotW + 'px';
+      svg.style.height = plotH + 'px';
+      svg.style.overflow = 'visible';
       svg.style.pointerEvents = 'auto';
+      svg.style.zIndex = 20; // above chart internals
       chartDiv.appendChild(svg);
 
-      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', '#0af');
       path.setAttribute('stroke-width', '2');
       svg.appendChild(path);
 
-      function updatePath() {
-        const d = points.map((pt, i) => {
-          const x = pt.x * plotW;
-          const y = plotH - pt.y * plotH;
-          return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+      // helper: convert normalized point -> pixel coords (inside plot area)
+      function ptToPixel(pt) {
+        const x = pt.x * plotW;
+        const y = plotH - pt.y * plotH; // v=1 => top (0), v=0 => bottom (plotH)
+        return { x, y };
+      }
+
+      // draw path from current points (straight segments to keep strong influence)
+      function drawPath() {
+        const d = points.map((p, idx) => {
+          const { x, y } = ptToPixel(p);
+          return (idx === 0 ? 'M' : 'L') + ' ' + x + ' ' + y;
         }).join(' ');
         path.setAttribute('d', d);
       }
 
-      function makeHandle(pt) {
-        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c.setAttribute('r', 7);
-        c.setAttribute('fill', '#0af');
-        c.style.cursor = 'pointer';
-        svg.appendChild(c);
+      // create handle (draggable) for a control point (only for indices 1 and 2)
+      function createHandle(pointIndex) {
+        const p = points[pointIndex];
+        const { x, y } = ptToPixel(p);
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', 7);
+        circle.setAttribute('fill', '#0af');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.style.cursor = 'grab';
+        svg.appendChild(circle);
 
         let dragging = false;
 
-        function sync() {
-          c.setAttribute('cx', pt.x * plotW);
-          c.setAttribute('cy', plotH - pt.y * plotH);
-          updatePath();
+        function onPointerDown(e) {
+          e.preventDefault();
+          dragging = true;
+          circle.setPointerCapture && circle.setPointerCapture(e.pointerId);
+          circle.style.cursor = 'grabbing';
+        }
+        function onPointerUp(e) {
+          dragging = false;
+          circle.releasePointerCapture && circle.releasePointerCapture(e.pointerId);
+          circle.style.cursor = 'grab';
+        }
+        function onPointerMove(e) {
+          if (!dragging) return;
+          const rect = svg.getBoundingClientRect();
+          // compute coords relative to svg viewBox / plot area
+          const rx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+          const ry = 1 - Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+          // enforce x ordering so handles don't cross boundaries
+          if (pointIndex === 1) {
+            // keep between p0.x and p2.x
+            const minX = 0;
+            const maxX = points[2].x - 0.01;
+            p.x = Math.min(maxX, Math.max(minX, rx));
+          } else if (pointIndex === 2) {
+            const minX = points[1].x + 0.01;
+            const maxX = 1;
+            p.x = Math.min(maxX, Math.max(minX, rx));
+          } else {
+            p.x = rx;
+          }
+          p.y = ry;
+
+          // update handle position immediately
+          const pix = ptToPixel(p);
+          circle.setAttribute('cx', pix.x);
+          circle.setAttribute('cy', pix.y);
+
+          // redraw path & update chart
+          drawPath();
+          scheduleChartUpdate();
         }
 
-        c.addEventListener('mousedown', () => dragging = true);
-        window.addEventListener('mouseup', () => dragging = false);
-        window.addEventListener('mousemove', e => {
-          if (!dragging) return;
-          const r = svg.getBoundingClientRect();
-          pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-          pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-          sync();
-          updateChart();
-        });
+        circle.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointermove', onPointerMove);
 
-        sync();
+        overlay.handles.push({ circle, idx: pointIndex, onPointerDown, onPointerUp, onPointerMove });
       }
 
-      makeHandle(points[1]);
-      makeHandle(points[2]);
-      updatePath();
+      // create handles for p1 and p2 only (p0 and p3 fixed)
+      createHandle(1);
+      createHandle(2);
+
+      // store overlay pieces
+      overlay.svg = svg;
+      overlay.path = path;
+      drawPath();
+
+      return { drawPath, ptToPixel, svg, path, plotW, plotH, gridLeft, gridTop };
     }
 
-    /* -------------------- CHART -------------------- */
-    let chart;
-    function updateChart() {
-      chart.updateSeries([{ data: generateCandles() }], false);
-      requestAnimationFrame(mountOverlay);
+    /* -------------------- CHART + UPDATE FLOW -------------------- */
+    let chart = null;
+    let overlayInfo = null;
+    let scheduled = null;
+
+    function scheduleChartUpdate() {
+      // throttle multiple drags; immediate-ish update
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(() => {
+        scheduled = null;
+        if (chart) {
+          chart.updateSeries([{ data: generateCandles() }], false);
+          // re-create overlay based on up-to-date chart.w.globals (size/padding)
+          overlayInfo = createOverlayUsingChartGlobals(chart);
+        }
+      });
     }
 
     function initChart() {
@@ -183,7 +263,9 @@
           animations: { enabled: false }
         },
         series: [{ data: generateCandles() }],
-        plotOptions: { candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } } },
+        plotOptions: {
+          candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } }
+        },
         grid: { show: true },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
@@ -194,16 +276,34 @@
         }
       });
 
-      chart.render().then(mountOverlay);
+      chart.render().then(() => {
+        // create overlay after render so chart.w.globals exist
+        overlayInfo = createOverlayUsingChartGlobals(chart);
 
-      new ResizeObserver(() => {
-        chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
-        mountOverlay();
-      }).observe(chartDiv);
+        // observe container for size changes and re-create overlay accordingly
+        const ro = new ResizeObserver(() => {
+          // update chart width (Apex requires updateOptions) and recreate overlay
+          chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
+          overlayInfo = createOverlayUsingChartGlobals(chart);
+        });
+        ro.observe(chartDiv);
+
+        // cleanup handle
+        container._protonChartCleanup = () => {
+          try { ro.disconnect(); } catch (e) {}
+          try { chart.destroy(); } catch (e) {}
+          if (overlay.svg && overlay.svg.parentNode) overlay.svg.parentNode.removeChild(overlay.svg);
+          overlay = { svg: null, path: null, handles: [] };
+        };
+      });
     }
 
     /* -------------------- INIT -------------------- */
-    loadApexCharts().then(initChart).catch(err => console.error('[Proton] ApexCharts failed', err));
+    loadApexCharts()
+      .then(initChart)
+      .catch(err => {
+        console.error('[Proton] ApexCharts failed to load', err);
+      });
 
     return container;
   };
