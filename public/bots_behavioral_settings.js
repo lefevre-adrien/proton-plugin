@@ -1,4 +1,4 @@
-// RIGHT panel: behavioral settings placeholder
+// RIGHT panel: minimal + TradingView Lightweight Chart
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -13,28 +13,46 @@
           Configure per-bot behavior and parameters here.
         </p>
 
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div>
-            <label>Behavior Field A</label>
-            <input type="text" placeholder="Value A" />
-          </div>
-          <div>
-            <label>Behavior Field B</label>
-            <input type="text" placeholder="Value B" />
-          </div>
-        </div>
-
-        <div style="margin-top:8px;">
-          <label>Notes</label>
-          <input type="text" placeholder="Short note about behavior" />
-        </div>
-
-        <div style="margin-top:12px;display:flex;gap:10px;">
-          <button id="save-behavior-btn">Save</button>
-          <button id="reset-behavior-btn">Reset</button>
-        </div>
+        <div id="tradingview-chart" style="margin-top:12px; height:300px;"></div>
       </div>
     `;
+
+    // Dynamically load TradingView Lightweight Charts
+    function loadTradingView() {
+      return new Promise((resolve, reject) => {
+        if (window.LightweightCharts) return resolve(window.LightweightCharts);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js';
+        script.onload = () => resolve(window.LightweightCharts);
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    loadTradingView().then(LW => {
+      const chartDiv = container.querySelector('#tradingview-chart');
+      const chart = LW.createChart(chartDiv, {
+        layout: { backgroundColor: '#1a1a1a', textColor: '#eee' },
+        rightPriceScale: { borderColor: '#555' },
+        timeScale: { borderColor: '#555' },
+      });
+
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#0f0',
+        downColor: '#f00',
+        borderVisible: false,
+      });
+
+      // Example data — replace with your own
+      candleSeries.setData([
+        { time: '2026-01-20', open: 100, high: 110, low: 90, close: 105 },
+        { time: '2026-01-21', open: 105, high: 115, low: 95, close: 110 },
+        { time: '2026-01-22', open: 110, high: 120, low: 100, close: 108 },
+      ]);
+    }).catch(err => {
+      console.error('[Proton] Failed to load TradingView LightweightCharts', err);
+    });
 
     return container;
   };
