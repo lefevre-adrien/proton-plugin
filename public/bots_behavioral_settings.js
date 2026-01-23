@@ -1,4 +1,4 @@
-// RIGHT panel: ultra minimal + Lightweight Chart (dark, fit, no zoom)
+// RIGHT panel: ultra minimal + Chart.js Candlestick (dark, fit, no zoom)
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -6,7 +6,7 @@
     const container = document.createElement('div');
     container.className = 'right-section';
 
-    // Ensure the container can shrink inside flex row
+    // Flex column + shrinking inside flex row
     container.style.minWidth = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -16,98 +16,78 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">Chart preview</p>
-      <div id="tradingview-chart" style="flex:1; min-height:200px; width:100%; overflow:hidden;"></div>
+      <canvas id="chartjs-candlestick" style="flex:1; min-height:200px; width:100%;"></canvas>
     `;
 
-    const chartDiv = container.querySelector('#tradingview-chart');
+    const canvas = container.querySelector('#chartjs-candlestick');
 
-    function loadLightweightCharts() {
+    function loadChartJS() {
       return new Promise((resolve, reject) => {
-        if (window.LightweightCharts) return resolve();
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js';
-        script.onload = () => setTimeout(() => {
-          if (window.LightweightCharts) resolve();
-          else reject(new Error('LightweightCharts global not found'));
-        }, 0);
-        script.onerror = reject;
-        document.head.appendChild(script);
+        if (window.Chart && window.ChartFinancial) return resolve();
+        
+        const scripts = [
+          'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js',
+          'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.2.0/dist/chartjs-chart-financial.min.js'
+        ];
+
+        let loaded = 0;
+        scripts.forEach(src => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = () => {
+            loaded++;
+            if (loaded === scripts.length) resolve();
+          };
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
       });
     }
 
-    // Wait until the chartDiv has size before creating chart
-    function waitForSize(el) {
-      return new Promise((resolve, reject) => {
-        const check = () => {
-          const w = el.clientWidth;
-          const h = el.clientHeight;
-          if (w > 0 && h > 0) resolve({ w, h });
-          else requestAnimationFrame(check);
-        };
-        check();
+    function initChart() {
+      const ctx = canvas.getContext('2d');
+
+      const chart = new Chart(ctx, {
+        type: 'candlestick',
+        data: {
+          datasets: [{
+            label: 'OHLC',
+            data: [
+              { x: '2026-01-20', o: 100, h: 110, l: 90, c: 105 },
+              { x: '2026-01-21', o: 105, h: 115, l: 95, c: 110 },
+              { x: '2026-01-22', o: 110, h: 120, l: 100, c: 108 },
+            ],
+            borderColor: '#eee',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'nearest', intersect: false },
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { display: false, drawTicks: false },
+              ticks: { color: '#eee' },
+            },
+            y: {
+              grid: { display: false, drawTicks: false },
+              ticks: { color: '#eee' },
+            }
+          }
+        }
       });
+
+      // Store cleanup
+      container._protonChartCleanup = () => {
+        chart.destroy();
+      };
     }
 
-    loadLightweightCharts()
-      .then(() => waitForSize(chartDiv))
-      .then(({ w, h }) => {
-        const LW = window.LightweightCharts;
-
-        const chart = LW.createChart(chartDiv, {
-          width: w,
-          height: h,
-          layout: {
-            backgroundColor: 'transparent', // let right-section bg show
-            textColor: '#eee'
-          },
-          grid: {
-            vertLines: { visible: false },
-            horzLines: { visible: false }
-          },
-          rightPriceScale: {
-            borderColor: '#555',
-            scaleMargins: { top: 0.1, bottom: 0.1 }
-          },
-          timeScale: {
-            borderColor: '#555',
-            fixRightEdge: true,
-            lockVisibleTimeRangeOnResize: true,
-            rightOffset: 5
-          },
-          handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
-          handleScale: { axisPressedMouseMove: false, pinch: false, mouseWheel: false },
-          crosshair: { mode: 0 }
-        });
-
-        const candleSeries = chart.addCandlestickSeries({
-          upColor: '#26a69a',
-          downColor: '#ef5350',
-          borderVisible: false,
-          wickUpColor: '#26a69a',
-          wickDownColor: '#ef5350',
-        });
-
-        candleSeries.setData([
-          { time: '2026-01-20', open: 100, high: 110, low: 90, close: 105 },
-          { time: '2026-01-21', open: 105, high: 115, low: 95, close: 110 },
-          { time: '2026-01-22', open: 110, high: 120, low: 100, close: 108 },
-        ]);
-
-        // Make chart responsive
-        const ro = new ResizeObserver(() => {
-          chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight });
-        });
-        ro.observe(chartDiv);
-
-        // optional cleanup handle
-        container._protonChartCleanup = () => {
-          ro.disconnect();
-          try { chart.remove(); } catch (e) {}
-        };
-      })
-      .catch(err => {
-        console.error('[Proton] Failed to load or init LightweightCharts', err);
-      });
+    loadChartJS()
+      .then(initChart)
+      .catch(err => console.error('[Proton] Failed to load Chart.js', err));
 
     return container;
   };
