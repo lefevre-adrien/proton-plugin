@@ -1,4 +1,4 @@
-// RIGHT panel: ApexCharts Candlestick + Bezier Behavior Editor
+// RIGHT panel: ApexCharts Candlestick + Spline Behavior Editor
 (function () {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -39,24 +39,36 @@
       });
     }
 
-    /* -------------------- BEZIER CURVE -------------------- */
-    const curve = {
-      p0: { x: 0, y: 0.5 },
-      p1: { x: 0.3, y: 0.3 },
-      p2: { x: 0.7, y: 0.7 },
-      p3: { x: 1, y: 0.5 }
-    };
+    /* -------------------- CONTROL POINTS & SPLINE -------------------- */
+    const points = [
+      { x: 0, y: 0 },      // fixed start
+      { x: 0.3, y: 0.3 },  // draggable
+      { x: 0.7, y: 0.7 },  // draggable
+      { x: 1, y: 0.5 }     // fixed end
+    ];
 
-    function bezier(t, p0, p1, p2, p3) {
-      const u = 1 - t;
-      return u ** 3 * p0 + 3 * u ** 2 * t * p1 + 3 * u * t ** 2 * p2 + t ** 3 * p3;
+    function interpolate(t) {
+      // Catmull-Rom-like spline (linear between 4 points)
+      if (t <= points[1].x) {
+        const p0 = points[0], p1 = points[1];
+        const u = (t - p0.x) / (p1.x - p0.x);
+        return p0.y * (1 - u) + p1.y * u;
+      } else if (t <= points[2].x) {
+        const p1 = points[1], p2 = points[2];
+        const u = (t - p1.x) / (p2.x - p1.x);
+        return p1.y * (1 - u) + p2.y * u;
+      } else {
+        const p2 = points[2], p3 = points[3];
+        const u = (t - p2.x) / (p3.x - p2.x);
+        return p2.y * (1 - u) + p3.y * u;
+      }
     }
 
     function sampleCurve(count) {
       const values = [];
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
-        values.push(bezier(t, curve.p0.y, curve.p1.y, curve.p2.y, curve.p3.y));
+        values.push(interpolate(t));
       }
       return values;
     }
@@ -85,7 +97,7 @@
     /* -------------------- SVG OVERLAY -------------------- */
     let svg, path;
 
-    function mountBezierOverlay() {
+    function mountOverlay() {
       const inner = chartDiv.querySelector('.apexcharts-inner.apexcharts-graphical');
       if (!inner) return;
 
@@ -110,17 +122,14 @@
       svg.appendChild(path);
 
       function updatePath() {
-        const p = curve;
-        path.setAttribute(
-          'd',
-          `M ${p.p0.x * width} ${(1 - p.p0.y) * height}
-           C ${p.p1.x * width} ${(1 - p.p1.y) * height},
-             ${p.p2.x * width} ${(1 - p.p2.y) * height},
-             ${p.p3.x * width} ${(1 - p.p3.y) * height}`
-        );
+        let d = `M ${points[0].x * width} ${(1 - points[0].y) * height}`;
+        for (let i = 1; i < points.length; i++) {
+          d += ` L ${points[i].x * width} ${(1 - points[i].y) * height}`;
+        }
+        path.setAttribute('d', d);
       }
 
-      function makeHandle(point) {
+      function makeHandle(pt) {
         const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         c.setAttribute('r', 7);
         c.setAttribute('fill', '#0af');
@@ -130,8 +139,8 @@
         let dragging = false;
 
         function sync() {
-          c.setAttribute('cx', point.x * width);
-          c.setAttribute('cy', (1 - point.y) * height);
+          c.setAttribute('cx', pt.x * width);
+          c.setAttribute('cy', (1 - pt.y) * height);
           updatePath();
         }
 
@@ -139,9 +148,9 @@
         window.addEventListener('mouseup', () => dragging = false);
         window.addEventListener('mousemove', e => {
           if (!dragging) return;
-          const rect = svg.getBoundingClientRect();
-          point.x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-          point.y = 1 - Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+          const r = svg.getBoundingClientRect();
+          pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+          pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
           sync();
           updateChart();
         });
@@ -149,18 +158,16 @@
         sync();
       }
 
-      // Only draggable points
-      makeHandle(curve.p1);
-      makeHandle(curve.p2);
+      makeHandle(points[1]);
+      makeHandle(points[2]);
       updatePath();
     }
 
     /* -------------------- CHART -------------------- */
     let chart;
-
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
-      requestAnimationFrame(mountBezierOverlay);
+      requestAnimationFrame(mountOverlay);
     }
 
     function initChart() {
@@ -181,11 +188,11 @@
         yaxis: { labels: { style: { colors: '#aaa' } } }
       });
 
-      chart.render().then(mountBezierOverlay);
+      chart.render().then(mountOverlay);
 
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
-        mountBezierOverlay();
+        mountOverlay();
       }).observe(chartDiv);
     }
 
