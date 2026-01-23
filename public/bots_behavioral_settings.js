@@ -1,10 +1,11 @@
-// RIGHT panel: ApexCharts Candlestick + Straight Line Visual + Red Border Overlay
+// RIGHT panel: ApexCharts Candlestick + Spline Behavior Editor
 (function () {
   window.ProtonPanels = window.ProtonPanels || {};
 
   window.ProtonPanels.createRight = function () {
     const container = document.createElement('div');
     container.className = 'right-section';
+
     container.style.minWidth = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -19,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave KILL YOURSELF CHAT GPT
+        This Is How The Bots Will Behave HERE 5
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -38,30 +39,46 @@
       });
     }
 
-    /* -------------------- STRAIGHT LINE CURVE -------------------- */
-    function straightLine(t) {
-      return 0.2 + 0.6 * t; // linear from 0.2 -> 0.8
+    /* -------------------- CONTROL POINTS -------------------- */
+    const points = [
+      { x: 0, y: 0 },
+      { x: 0.3, y: 0.3 },
+      { x: 0.7, y: 0.7 },
+      { x: 1, y: 0.5 }
+    ];
+
+    function interpolate(t) {
+      if (t <= points[1].x) {
+        const u = (t - points[0].x) / (points[1].x - points[0].x);
+        return points[0].y * (1 - u) + points[1].y * u;
+      } else if (t <= points[2].x) {
+        const u = (t - points[1].x) / (points[2].x - points[1].x);
+        return points[1].y * (1 - u) + points[2].y * u;
+      } else {
+        const u = (t - points[2].x) / (points[3].x - points[2].x);
+        return points[2].y * (1 - u) + points[3].y * u;
+      }
     }
 
     function sampleCurve(count) {
-      const arr = [];
+      const values = [];
       for (let i = 0; i < count; i++) {
-        const t = count === 1 ? 0 : i / (count - 1);
-        arr.push(straightLine(t));
+        const t = i / (count - 1);
+        values.push(interpolate(t));
       }
-      return arr;
+      return values;
     }
 
     /* -------------------- CANDLES -------------------- */
     function generateCandles() {
-      const curve = sampleCurve(CANDLE_COUNT);
+      const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
-      let price = PRICE_MIN + curve[0] * (PRICE_MAX - PRICE_MIN);
+      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
 
-      for (let i = 0; i < CANDLE_COUNT; i++) {
-        const targetPrice = PRICE_MIN + curve[i] * (PRICE_MAX - PRICE_MIN);
+      curveValues.forEach((v, i) => {
+        const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = targetPrice + (Math.random() - 0.5) * 0.2;
+        const close = targetPrice;
         const high = Math.max(open, close) + Math.random() * 0.3;
         const low = Math.min(open, close) - Math.random() * 0.3;
 
@@ -71,66 +88,89 @@
         });
 
         price = close;
-      }
+      });
+
       return candles;
     }
 
-    /* -------------------- SVG STRAIGHT LINE OVER CURVE -------------------- */
-    let overlayDiv, svg, path;
+    /* -------------------- SVG OVERLAY -------------------- */
+    let svg, path;
 
-    function drawOverlayCurve() {
-      const w = chartDiv.clientWidth;
-      const h = chartDiv.clientHeight;
+    function mountOverlay() {
+      const inner = chartDiv.querySelector('.apexcharts-grid');
+      if (!inner) return;
 
-      if (!overlayDiv) {
-        overlayDiv = document.createElement('div');
-        overlayDiv.style.position = 'absolute';
-        overlayDiv.style.top = '0';
-        overlayDiv.style.left = '0';
-        overlayDiv.style.width = '100%';
-        overlayDiv.style.height = '100%';
-        overlayDiv.style.pointerEvents = 'none';
-        overlayDiv.style.border = '2px solid red'; // always visible border
-        overlayDiv.style.background = 'transparent';
-        overlayDiv.style.boxSizing = 'border-box';
-        overlayDiv.style.zIndex = '2147483647';
-        chartDiv.appendChild(overlayDiv);
-      }
+      if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
 
-      // remove old SVG if exists
-      if (svg && svg.parentNode === overlayDiv) overlayDiv.removeChild(svg);
-
+      const { width, height } = inner.getBoundingClientRect();
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('width', w);
-      svg.setAttribute('height', h);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.style.width = '100%';
       svg.style.height = '100%';
       svg.style.position = 'absolute';
-      overlayDiv.appendChild(svg);
+      svg.style.top = '0';
+      svg.style.left = '0';
+      svg.style.pointerEvents = 'auto';
+      inner.style.position = 'relative';
+      inner.appendChild(svg);
 
       path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', '#0af'); // straight line color
+      path.setAttribute('stroke', '#0af');
       path.setAttribute('stroke-width', '2');
       svg.appendChild(path);
 
-      const curve = sampleCurve(CANDLE_COUNT);
-      let d = '';
-      for (let i = 0; i < curve.length; i++) {
-        const x = (i / (curve.length - 1)) * w;
-        const y = (1 - curve[i]) * h;
-        d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      function updatePath() {
+        let d = `M ${points[0].x * width} ${(1 - points[0].y) * height}`;
+        for (let i = 1; i < points.length; i++) {
+          d += ` L ${points[i].x * width} ${(1 - points[i].y) * height}`;
+        }
+        path.setAttribute('d', d);
       }
-      path.setAttribute('d', d);
+
+      function makeHandle(pt) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('r', 7);
+        c.setAttribute('fill', '#0af');
+        c.style.cursor = 'pointer';
+        svg.appendChild(c);
+
+        let dragging = false;
+
+        function sync() {
+          c.setAttribute('cx', pt.x * width);
+          c.setAttribute('cy', (1 - pt.y) * height);
+          updatePath();
+        }
+
+        c.addEventListener('mousedown', () => dragging = true);
+        window.addEventListener('mouseup', () => dragging = false);
+        window.addEventListener('mousemove', e => {
+          if (!dragging) return;
+          const r = svg.getBoundingClientRect();
+          pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+          pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+          sync();
+          updateChart();
+        });
+
+        sync();
+      }
+
+      makeHandle(points[1]);
+      makeHandle(points[2]);
+      updatePath();
     }
 
     /* -------------------- CHART -------------------- */
     let chart;
-
+    let overlayDiv;
     function updateChart() {
-      if (!chart) return;
       chart.updateSeries([{ data: generateCandles() }], false);
-      drawOverlayCurve();
+      requestAnimationFrame(mountOverlay);
+
+      // keep overlay on top
+      if (overlayDiv) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
@@ -141,8 +181,7 @@
           toolbar: { show: false },
           zoom: { enabled: false },
           background: 'transparent',
-          animations: { enabled: false },
-          redrawOnParentResize: true
+          animations: { enabled: false }
         },
         series: [{ data: generateCandles() }],
         plotOptions: { candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } } },
@@ -157,16 +196,30 @@
       });
 
       chart.render().then(() => {
-        drawOverlayCurve();
+        mountOverlay();
 
-        const mo = new MutationObserver(() => {
-          requestAnimationFrame(drawOverlayCurve);
-        });
-        mo.observe(chartDiv, { childList: true });
-
-        const ro = new ResizeObserver(drawOverlayCurve);
-        ro.observe(chartDiv);
+        // -------------------- RED BORDER OVERLAY DIV --------------------
+        overlayDiv = document.createElement('div');
+        overlayDiv.style.position = 'absolute';
+        overlayDiv.style.top = '0';
+        overlayDiv.style.left = '0';
+        overlayDiv.style.width = '100%';
+        overlayDiv.style.height = '100%';
+        overlayDiv.style.pointerEvents = 'none';
+        overlayDiv.style.border = '2px solid red';
+        overlayDiv.style.background = 'transparent';
+        overlayDiv.style.zIndex = '9999';
+        chartDiv.appendChild(overlayDiv);
+        // -------------------------------------------------------------
       });
+
+      new ResizeObserver(() => {
+        chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
+        mountOverlay();
+
+        if (overlayDiv) overlayDiv.style.width = chartDiv.clientWidth + 'px';
+        if (overlayDiv) overlayDiv.style.height = chartDiv.clientHeight + 'px';
+      }).observe(chartDiv);
     }
 
     /* -------------------- INIT -------------------- */
