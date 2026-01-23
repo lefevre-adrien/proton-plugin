@@ -28,8 +28,38 @@
           padding: 20px;
           display: block;
           border-radius: 12px;
-          max-width: 420px;
-          box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+          max-width: 800px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+
+        .plugin-container {
+          display: flex;
+          flex-direction: row;
+          gap: 24px;
+        }
+
+        @media (max-width: 700px) {
+          .plugin-container {
+            flex-direction: column;
+          }
+        }
+
+        .left-section {
+          flex: 0 0 320px;
+          padding: 24px;
+          background: #1f1f1f;
+          border-radius: 12px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+          border-left: 4px solid #0af;
+        }
+
+        .right-section {
+          flex: 1;
+          padding: 24px;
+          background: #222;
+          border-radius: 12px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+          border-left: 4px solid #0af;
         }
 
         select, input, button {
@@ -42,10 +72,12 @@
           width: 100%;
           box-sizing: border-box;
           font-size: 14px;
+          transition: all 0.2s ease;
         }
 
         select:hover, input:hover, button:hover {
           background: #3a3a3a;
+          border-color: #0af;
         }
 
         button {
@@ -54,7 +86,8 @@
         }
 
         button:hover {
-          background: #555;
+          background: #0af;
+          color: #000;
           transform: translateY(-1px);
         }
 
@@ -78,7 +111,8 @@
           cursor: pointer;
           user-select: none;
           font-weight: 600;
-          transition: background 0.2s;
+          transition: background 0.2s, color 0.2s;
+          color: #0af;
         }
 
         .collapsible-header:hover {
@@ -93,7 +127,7 @@
         }
 
         .collapsible.open .collapsible-content {
-          max-height: 500px; /* enough to show content */
+          max-height: 500px;
           padding: 12px 16px;
         }
 
@@ -109,55 +143,62 @@
       `
 
       const wrapper = document.createElement('div')
-      wrapper.style.padding = '24px'
-
       wrapper.innerHTML = `
-        <!-- Account Selection -->
-        <label for="account-select">Select Public Key</label>
-        <select id="account-select">
-          <option>ABCD....WXYZ</option>
-          <option>1234....5678</option>
-          <option>AAAA....ZZZZ</option>
-        </select>
+        <div class="plugin-container">
+          <div class="left-section">
+            <!-- Account Selection -->
+            <label for="account-select">Select Account</label>
+            <select id="account-select">
+              <option>ABCD....WXYZ</option>
+              <option>1234....5678</option>
+              <option>AAAA....ZZZZ</option>
+            </select>
 
-        <!-- Import Private Key -->
-        <div class="row">
-          <input type="password" placeholder="Private key" />
-          <button id="import-key-btn">Import</button>
-        </div>
+            <!-- Import Private Key -->
+            <div class="row">
+              <input type="password" placeholder="Private key" />
+              <button id="import-key-btn">Import</button>
+            </div>
 
-        <!-- Collapsible Sections -->
-        <div class="collapsible" id="general-section">
-          <div class="collapsible-header">General</div>
-          <div class="collapsible-content">
-            <label>General Field 1</label>
-            <input type="text" placeholder="Value 1" />
-            <label>General Field 2</label>
-            <input type="text" placeholder="Value 2" />
+            <!-- Collapsible Sections -->
+            <div class="collapsible" id="general-section">
+              <div class="collapsible-header">General</div>
+              <div class="collapsible-content">
+                <label>General Field 1</label>
+                <input type="text" placeholder="Value 1" />
+                <label>General Field 2</label>
+                <input type="text" placeholder="Value 2" />
+              </div>
+            </div>
+
+            <div class="collapsible" id="advanced-section">
+              <div class="collapsible-header">Advanced</div>
+              <div class="collapsible-content">
+                <label>Advanced Field 1</label>
+                <input type="text" placeholder="Value 1" />
+                <label>Advanced Field 2</label>
+                <input type="text" placeholder="Value 2" />
+              </div>
+            </div>
+
+            <!-- Number of cycles and Run -->
+            <div class="row">
+              <input class="number-input" type="number" placeholder="Cycles" />
+              <button id="run-btn">Run</button>
+            </div>
           </div>
-        </div>
 
-        <div class="collapsible" id="advanced-section">
-          <div class="collapsible-header">Advanced</div>
-          <div class="collapsible-content">
-            <label>Advanced Field 1</label>
-            <input type="text" placeholder="Value 1" />
-            <label>Advanced Field 2</label>
-            <input type="text" placeholder="Value 2" />
+          <div class="right-section">
+            <!-- Placeholder for right section content -->
+            <p style="color:#0af;">Right section content goes here.</p>
           </div>
-        </div>
-
-        <!-- Number of cycles and Run -->
-        <div class="row">
-          <input class="number-input" type="number" placeholder="Cycles" />
-          <button id="run-btn">Run</button>
         </div>
       `
 
       shadow.appendChild(style)
       shadow.appendChild(wrapper)
 
-      // Collapsible toggle with animation
+      // Collapsible toggle
       const collapsibles = shadow.querySelectorAll('.collapsible')
       collapsibles.forEach(section => {
         const header = section.querySelector('.collapsible-header')
