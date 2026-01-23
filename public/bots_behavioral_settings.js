@@ -21,13 +21,14 @@
 
     const canvas = container.querySelector('#chartjs-candlestick');
 
+    // Dynamically load Chart.js + financial plugin (using unpkg to avoid MIME issues)
     function loadChartJS() {
       return new Promise((resolve, reject) => {
         if (window.Chart && window.ChartFinancial) return resolve();
-        
+
         const scripts = [
           'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js',
-          'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.2.0/dist/chartjs-chart-financial.min.js'
+          'https://unpkg.com/chartjs-chart-financial@3.2.0/dist/chartjs-chart-financial.min.js'
         ];
 
         let loaded = 0;
@@ -58,29 +59,42 @@
               { x: '2026-01-22', o: 110, h: 120, l: 100, c: 108 },
             ],
             borderColor: '#eee',
-            borderWidth: 1
+            borderWidth: 1,
+            color: ctx => ctx.dataset.data[ctx.dataIndex].c >= ctx.dataset.data[ctx.dataIndex].o ? '#26a69a' : '#ef5350'
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          interaction: { mode: 'nearest', intersect: false },
-          plugins: { legend: { display: false } },
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+          },
           scales: {
             x: {
               grid: { display: false, drawTicks: false },
               ticks: { color: '#eee' },
+              offset: true
             },
             y: {
               grid: { display: false, drawTicks: false },
               ticks: { color: '#eee' },
             }
-          }
+          },
+          interaction: { mode: 'nearest', intersect: false },
         }
       });
 
-      // Store cleanup
+      // Make chart resize automatically
+      const ro = new ResizeObserver(() => {
+        chart.resize();
+      });
+      ro.observe(canvas);
+
+      // Cleanup handle
       container._protonChartCleanup = () => {
+        ro.disconnect();
         chart.destroy();
       };
     }
