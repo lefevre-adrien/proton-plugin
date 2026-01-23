@@ -20,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE 2
+        This Is How The Bots Will Behave HERE 3
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -48,7 +48,6 @@
     ];
 
     function interpolate(t) {
-      // Linear interpolation between control points
       if (t <= points[1].x) {
         const u = (t - points[0].x) / (points[1].x - points[0].x);
         return points[0].y * (1 - u) + points[1].y * u;
@@ -74,7 +73,7 @@
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
-      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN); // start at first point
+      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
 
       curveValues.forEach((v, i) => {
         const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
@@ -88,7 +87,7 @@
           y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
         });
 
-        price = close; // move to next candle
+        price = close;
       });
 
       return candles;
@@ -98,22 +97,24 @@
     let svg, path;
 
     function mountOverlay() {
-      const inner = chartDiv.querySelector('.apexcharts-grid');
-      if (!inner) return;
+      const gridG = chartDiv.querySelector('.apexcharts-grid');
+      if (!gridG) return;
 
       if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
 
-      const { width, height } = inner.getBoundingClientRect();
+      // Use getBBox to get local SVG coordinates
+      const bbox = gridG.getBBox();
+      const svgWidth = bbox.width;
+      const svgHeight = bbox.height;
+
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
       svg.style.width = '100%';
       svg.style.height = '100%';
       svg.style.position = 'absolute';
       svg.style.top = '0';
       svg.style.left = '0';
-      svg.style.pointerEvents = 'auto';
-      inner.style.position = 'relative';
-      inner.appendChild(svg);
+      gridG.appendChild(svg);
 
       path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('fill', 'none');
@@ -122,9 +123,9 @@
       svg.appendChild(path);
 
       function updatePath() {
-        let d = `M ${points[0].x * width} ${(1 - points[0].y) * height}`;
+        let d = `M ${points[0].x * svgWidth} ${(1 - points[0].y) * svgHeight}`;
         for (let i = 1; i < points.length; i++) {
-          d += ` L ${points[i].x * width} ${(1 - points[i].y) * height}`;
+          d += ` L ${points[i].x * svgWidth} ${(1 - points[i].y) * svgHeight}`;
         }
         path.setAttribute('d', d);
       }
@@ -139,8 +140,8 @@
         let dragging = false;
 
         function sync() {
-          c.setAttribute('cx', pt.x * width);
-          c.setAttribute('cy', (1 - pt.y) * height);
+          c.setAttribute('cx', pt.x * svgWidth);
+          c.setAttribute('cy', (1 - pt.y) * svgHeight);
           updatePath();
         }
 
@@ -182,13 +183,14 @@
         },
         series: [{ data: generateCandles() }],
         plotOptions: { candlestick: { colors: { upward: '#26a69a', downward: '#ef5350' } } },
-        grid: { show: false },
+        grid: { show: true }, // show grid for reference
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
         yaxis: {
-          min: PRICE_MIN,   // fix the bottom
-          max: PRICE_MAX,   // fix the top
-          labels: { style: { colors: '#aaa' } } }
+          min: PRICE_MIN,
+          max: PRICE_MAX,
+          labels: { style: { colors: '#aaa' } }
+        }
       });
 
       chart.render().then(mountOverlay);
