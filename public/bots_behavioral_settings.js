@@ -17,7 +17,7 @@
 
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
-      <p style="margin:0;color:#cfe8ff;opacity:0.9">Chart preview</p>
+      <p style="margin:0;color:#cfe8ff;opacity:0.9">This Is How The Bots Will Behave</p>
       <div id="apex-candlestick" style="height:${fixedHeight}px; width:100%;"></div>
     `;
 
