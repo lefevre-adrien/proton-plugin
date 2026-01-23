@@ -1,4 +1,4 @@
-// RIGHT panel: minimal + TradingView Lightweight Chart
+// RIGHT panel: minimal + Lightweight Chart (dark, fit, no zoom)
 (function() {
   window.ProtonPanels = window.ProtonPanels || {};
 
@@ -12,7 +12,6 @@
         <p style="margin:0;color:#cfe8ff;opacity:0.9">
           Chart preview
         </p>
-
         <div id="tradingview-chart" style="margin-top:12px; height:300px; width:100%;"></div>
       </div>
     `;
@@ -23,7 +22,6 @@
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js';
         script.onload = () => {
-          // Wait a microtask to ensure the global is set
           setTimeout(() => {
             if (window.LightweightCharts) resolve();
             else reject(new Error('LightweightCharts global not found'));
@@ -38,17 +36,43 @@
       .then(() => {
         const chartDiv = container.querySelector('#tradingview-chart');
 
-        // Use global LightweightCharts, as documented
         const chart = window.LightweightCharts.createChart(chartDiv, {
+          width: chartDiv.clientWidth,
+          height: chartDiv.clientHeight,
           layout: {
             backgroundColor: '#1a1a1a',
             textColor: '#eee'
           },
-          rightPriceScale: { borderColor: '#555' },
-          timeScale: { borderColor: '#555' },
+          rightPriceScale: {
+            borderColor: '#555',
+            scaleMargins: { top: 0.1, bottom: 0.1 }
+          },
+          timeScale: {
+            borderColor: '#555',
+            fixRightEdge: true,
+            lockVisibleTimeRangeOnResize: true,
+            rightOffset: 5
+          },
+          handleScroll: {
+            mouseWheel: false,
+            pressedMouseMove: false,
+            horzTouchDrag: false,
+            vertTouchDrag: false
+          },
+          handleScale: {
+            axisPressedMouseMove: false,
+            pinch: false,
+            mouseWheel: false
+          },
+          crosshair: {
+            mode: 0 // normal crosshair
+          },
+          grid: {
+            vertLines: { color: '#333' },
+            horzLines: { color: '#333' }
+          }
         });
 
-        // Create candlestick series using documented method
         const candleSeries = chart.addCandlestickSeries({
           upColor: '#26a69a',
           downColor: '#ef5350',
@@ -62,6 +86,11 @@
           { time: '2026-01-21', open: 105, high: 115, low: 95, close: 110 },
           { time: '2026-01-22', open: 110, high: 120, low: 100, close: 108 },
         ]);
+
+        // Optional: make chart responsive to container resize
+        new ResizeObserver(() => {
+          chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight });
+        }).observe(chartDiv);
       })
       .catch(err => {
         console.error('[Proton] Failed to load LightweightCharts', err);
