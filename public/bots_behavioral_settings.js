@@ -39,7 +39,7 @@
       });
     }
 
-    /* -------------------- CONTROL POINTS & SPLINE -------------------- */
+    /* -------------------- CONTROL POINTS -------------------- */
     const points = [
       { x: 0, y: 0 },      // fixed start
       { x: 0.3, y: 0.3 },  // draggable
@@ -48,19 +48,16 @@
     ];
 
     function interpolate(t) {
-      // Catmull-Rom-like spline (linear between 4 points)
+      // Linear interpolation between control points
       if (t <= points[1].x) {
-        const p0 = points[0], p1 = points[1];
-        const u = (t - p0.x) / (p1.x - p0.x);
-        return p0.y * (1 - u) + p1.y * u;
+        const u = (t - points[0].x) / (points[1].x - points[0].x);
+        return points[0].y * (1 - u) + points[1].y * u;
       } else if (t <= points[2].x) {
-        const p1 = points[1], p2 = points[2];
-        const u = (t - p1.x) / (p2.x - p1.x);
-        return p1.y * (1 - u) + p2.y * u;
+        const u = (t - points[1].x) / (points[2].x - points[1].x);
+        return points[1].y * (1 - u) + points[2].y * u;
       } else {
-        const p2 = points[2], p3 = points[3];
-        const u = (t - p2.x) / (p3.x - p2.x);
-        return p2.y * (1 - u) + p3.y * u;
+        const u = (t - points[2].x) / (points[3].x - points[2].x);
+        return points[2].y * (1 - u) + points[3].y * u;
       }
     }
 
@@ -77,18 +74,21 @@
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
+      let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN); // start at first point
 
       curveValues.forEach((v, i) => {
-        const price = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
+        const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = price;
-        const high = price + Math.random() * 0.3;
-        const low = price - Math.random() * 0.3;
+        const close = targetPrice;
+        const high = Math.max(open, close) + Math.random() * 0.3;
+        const low = Math.min(open, close) - Math.random() * 0.3;
 
         candles.push({
           x: Date.now() + i * 86400000,
           y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
         });
+
+        price = close; // move to next candle
       });
 
       return candles;
