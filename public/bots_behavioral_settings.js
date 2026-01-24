@@ -20,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE 5
+        This Is How The Bots Will Behave HERE FUCK YOU
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -165,6 +165,7 @@
     /* -------------------- CHART -------------------- */
     let chart;
     let overlayDiv;
+
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
       requestAnimationFrame(mountOverlay);
@@ -198,7 +199,7 @@
       chart.render().then(() => {
         mountOverlay();
 
-        // -------------------- RED BORDER OVERLAY DIV --------------------
+        // -------------------- RED BORDER DIV ON TOP OF CHART --------------------
         overlayDiv = document.createElement('div');
         overlayDiv.style.position = 'absolute';
         overlayDiv.style.top = '0';
@@ -213,12 +214,16 @@
         // -------------------------------------------------------------
       });
 
+      // Keep overlay size in sync on resize
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
         mountOverlay();
 
-        if (overlayDiv) overlayDiv.style.width = chartDiv.clientWidth + 'px';
-        if (overlayDiv) overlayDiv.style.height = chartDiv.clientHeight + 'px';
+        if (overlayDiv) {
+          overlayDiv.style.width = chartDiv.clientWidth + 'px';
+          overlayDiv.style.height = chartDiv.clientHeight + 'px';
+          chartDiv.appendChild(overlayDiv); // always on top
+        }
       }).observe(chartDiv);
     }
 
