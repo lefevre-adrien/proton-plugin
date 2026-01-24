@@ -118,7 +118,7 @@
       svg.style.height = '100%';
       svg.style.position = 'absolute';
       svg.style.top = '0';
-      svg.style.left = '0';
+      svg.style.right = '0';
       svg.style.pointerEvents = 'auto';
       overlayDiv.appendChild(svg);
 
