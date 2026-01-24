@@ -26,7 +26,19 @@
 
     const chartDiv = container.querySelector('#apex-candlestick');
 
-    // -------------------- Control Points --------------------
+    // -------------------- APEX LOADER --------------------
+    function loadApexCharts() {
+      return new Promise((resolve, reject) => {
+        if (window.ApexCharts) return resolve();
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    // -------------------- CONTROL POINTS --------------------
     const points = [
       { x: 0, y: 0 },
       { x: 0.3, y: 0.3 },
@@ -35,15 +47,23 @@
     ];
 
     function interpolate(t) {
-      if (t <= points[1].x) return points[0].y * (1 - (t - points[0].x) / (points[1].x - points[0].x)) + points[1].y * ((t - points[0].x) / (points[1].x - points[0].x));
-      if (t <= points[2].x) return points[1].y * (1 - (t - points[1].x) / (points[2].x - points[1].x)) + points[2].y * ((t - points[1].x) / (points[2].x - points[1].x));
-      return points[2].y * (1 - (t - points[2].x) / (points[3].x - points[2].x)) + points[3].y * ((t - points[2].x) / (points[3].x - points[2].x));
+      if (t <= points[1].x) {
+        const u = (t - points[0].x) / (points[1].x - points[0].x);
+        return points[0].y * (1 - u) + points[1].y * u;
+      } else if (t <= points[2].x) {
+        const u = (t - points[1].x) / (points[2].x - points[1].x);
+        return points[1].y * (1 - u) + points[2].y * u;
+      } else {
+        const u = (t - points[2].x) / (points[3].x - points[2].x);
+        return points[2].y * (1 - u) + points[3].y * u;
+      }
     }
 
     function sampleCurve(count) {
       const values = [];
       for (let i = 0; i < count; i++) {
-        values.push(interpolate(i / (count - 1)));
+        const t = i / (count - 1);
+        values.push(interpolate(t));
       }
       return values;
     }
@@ -52,40 +72,53 @@
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
       let price = PRICE_MIN + curveValues[0] * (PRICE_MAX - PRICE_MIN);
+
       curveValues.forEach((v, i) => {
-        const target = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
+        const targetPrice = PRICE_MIN + v * (PRICE_MAX - PRICE_MIN);
         const open = price;
-        const close = target;
+        const close = targetPrice;
         const high = Math.max(open, close) + Math.random() * 0.3;
         const low = Math.min(open, close) - Math.random() * 0.3;
-        candles.push({ x: Date.now() + i * 86400000, y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)] });
+
+        candles.push({
+          x: Date.now() + i * 86400000,
+          y: [+open.toFixed(2), +high.toFixed(2), +low.toFixed(2), +close.toFixed(2)]
+        });
+
         price = close;
       });
+
       return candles;
     }
 
-    // -------------------- Overlay --------------------
-    let overlayDiv, svg, path, handleElems = [], draggingIndex = -1;
+    // -------------------- OVERLAY + SVG --------------------
+    let overlayDiv = null;
+    let svg = null;
+    let path = null;
+    const handleElems = [];
+    let draggingIndex = -1;
 
-    function createOverlay() {
+    function createOverlayIfNeeded() {
       if (overlayDiv) return;
+
       overlayDiv = document.createElement('div');
       overlayDiv.style.position = 'absolute';
-      overlayDiv.style.top = 0;
-      overlayDiv.style.left = 0;
+      overlayDiv.style.top = '0';
+      overlayDiv.style.left = '0';
       overlayDiv.style.width = '100%';
       overlayDiv.style.height = '100%';
-      overlayDiv.style.zIndex = 9999;
+      overlayDiv.style.zIndex = '9999';
       overlayDiv.style.pointerEvents = 'none';
       overlayDiv.style.border = '2px solid red';
       chartDiv.appendChild(overlayDiv);
 
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('preserveAspectRatio', 'none');
       svg.style.width = '100%';
       svg.style.height = '100%';
       svg.style.position = 'absolute';
-      svg.style.top = 0;
-      svg.style.left = 0;
+      svg.style.top = '0';
+      svg.style.left = '0';
       svg.style.pointerEvents = 'auto';
       overlayDiv.appendChild(svg);
 
@@ -104,27 +137,40 @@
         svg.appendChild(c);
         handleElems.push(c);
 
-        ((idx) => {
-          c.addEventListener('mousedown', e => {
-            e.preventDefault();
-            draggingIndex = idx;
-            overlayDiv.style.pointerEvents = 'auto';
-          });
-        })(i);
+        // only middle handles draggable
+        if (i === 1 || i === 2) {
+          ((idx) => {
+            c.addEventListener('mousedown', (ev) => {
+              ev.preventDefault();
+              draggingIndex = idx;
+              overlayDiv.style.pointerEvents = 'auto';
+            });
+          })(i);
+        }
       }
 
-      window.addEventListener('mousemove', e => {
-        if (draggingIndex === -1) return;
-        const r = svg.getBoundingClientRect();
-        points[draggingIndex].x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-        points[draggingIndex].y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-        updateCurve();
-      });
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
 
-      window.addEventListener('mouseup', () => {
+      const mo = new MutationObserver(() => {
+        if (!chartDiv.contains(overlayDiv)) chartDiv.appendChild(overlayDiv);
+      });
+      mo.observe(chartDiv, { childList: true, subtree: false });
+    }
+
+    function onPointerMove(e) {
+      if (draggingIndex === -1) return;
+      const r = svg.getBoundingClientRect();
+      points[draggingIndex].x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      points[draggingIndex].y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      updateCurve();
+    }
+
+    function onPointerUp() {
+      if (draggingIndex !== -1) {
         draggingIndex = -1;
         overlayDiv.style.pointerEvents = 'none';
-      });
+      }
     }
 
     function updateCurve() {
@@ -144,11 +190,10 @@
         c.style.display = (i === 1 || i === 2) ? 'block' : 'none';
       });
 
-      // live update chart
       updateChart();
     }
 
-    // -------------------- Chart --------------------
+    // -------------------- CHART --------------------
     let chart;
     function updateChart() {
       if (!chart) return;
@@ -159,7 +204,7 @@
     }
 
     function initChart() {
-      createOverlay();
+      createOverlayIfNeeded();
       updateCurve();
 
       chart = new ApexCharts(chartDiv, {
@@ -185,7 +230,7 @@
       new ResizeObserver(() => updateCurve()).observe(chartDiv);
     }
 
-    loadApexCharts().then(initChart).catch(err => console.error(err));
+    loadApexCharts().then(initChart).catch(err => console.error('[Proton] ApexCharts failed', err));
 
     return container;
   };
