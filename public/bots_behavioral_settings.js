@@ -109,7 +109,7 @@
       overlayDiv.style.right = '20px';
       overlayDiv.style.zIndex = '9999';
       overlayDiv.style.pointerEvents = 'none';
-      overlayDiv.style.opacity = "50%"
+      overlayDiv.style.opacity = "80%"
       chartDiv.appendChild(overlayDiv);
 
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
