@@ -103,7 +103,7 @@
 
       overlayDiv = document.createElement('div');
       overlayDiv.style.position = 'absolute';
-      overlayDiv.style.top = '50px';
+      overlayDiv.style.top = '25px';
       overlayDiv.style.left = 'right';
       overlayDiv.style.width = '100%';
       overlayDiv.style.height = '100%';
