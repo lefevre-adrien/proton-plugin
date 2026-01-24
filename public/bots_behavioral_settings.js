@@ -24,7 +24,7 @@
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
 
-    const chartDiv = container.querySelector('#apex-candlestick');
+    let chartDiv = null;
 
     // -------------------- APEX LOADER --------------------
     function loadApexCharts() {
@@ -100,7 +100,7 @@
 
     function createOverlayIfNeeded() {
       if (overlayDiv) return;
-
+      chartDiv = container.querySelector('.apexcharts-inner.apexcharts-graphical');
       overlayDiv = document.createElement('div');
       overlayDiv.style.position = 'absolute';
       overlayDiv.style.top = '25px';
