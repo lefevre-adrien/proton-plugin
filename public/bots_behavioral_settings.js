@@ -19,7 +19,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave
+        This Is How The Bots Will Behave FUCK ME
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -104,7 +104,7 @@
       overlayDiv = document.createElement('div');
       overlayDiv.style.position = 'absolute';
       overlayDiv.style.top = '0';
-      overlayDiv.style.left = '0';
+      overlayDiv.style.left = 'right';
       overlayDiv.style.width = '100%';
       overlayDiv.style.height = '100%';
       overlayDiv.style.zIndex = '9999';
@@ -116,9 +116,6 @@
       svg.setAttribute('preserveAspectRatio', 'none');
       svg.style.width = '100%';
       svg.style.height = '100%';
-      svg.style.position = 'absolute';
-      svg.style.top = '0';
-      svg.style.right = '0';
       svg.style.pointerEvents = 'auto';
       overlayDiv.appendChild(svg);
 
