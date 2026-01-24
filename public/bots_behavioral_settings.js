@@ -5,7 +5,6 @@
   window.ProtonPanels.createRight = function () {
     const container = document.createElement('div');
     container.className = 'right-section';
-
     container.style.minWidth = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -29,19 +28,6 @@
     let overlayDiv;
     let chart;
 
-    /* -------------------- LOAD APEX -------------------- */
-    function loadApexCharts() {
-      return new Promise((resolve, reject) => {
-        if (window.ApexCharts) return resolve();
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-
-    /* -------------------- CONTROL POINTS -------------------- */
     const points = [
       { x: 0, y: 0 },
       { x: 0.3, y: 0.3 },
@@ -94,11 +80,11 @@
       return candles;
     }
 
-    /* -------------------- MOUNT CURVE INSIDE OVERLAY -------------------- */
+    /* -------------------- CURVE INSIDE OVERLAY -------------------- */
     function mountCurve() {
       if (!overlayDiv) return;
-      overlayDiv.innerHTML = ''; // clear previous SVG
 
+      overlayDiv.innerHTML = ''; // clear old content
       const width = overlayDiv.clientWidth;
       const height = overlayDiv.clientHeight;
 
@@ -109,7 +95,6 @@
       svg.style.position = 'absolute';
       svg.style.top = '0';
       svg.style.left = '0';
-      svg.style.pointerEvents = 'auto';
       overlayDiv.appendChild(svg);
 
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -131,10 +116,10 @@
         c.setAttribute('r', 7);
         c.setAttribute('fill', '#0af');
         c.style.cursor = 'pointer';
+        c.style.pointerEvents = 'all';
         svg.appendChild(c);
 
         let dragging = false;
-
         function sync() {
           c.setAttribute('cx', pt.x * width);
           c.setAttribute('cy', (1 - pt.y) * height);
@@ -159,13 +144,8 @@
       updatePath();
     }
 
-    /* -------------------- CHART -------------------- */
-    function updateChart() {
-      chart.updateSeries([{ data: generateCandles() }], false);
-    }
-
+    /* -------------------- INIT CHART + OVERLAY -------------------- */
     function initChart() {
-      // create overlay first
       overlayDiv = document.createElement('div');
       overlayDiv.style.position = 'absolute';
       overlayDiv.style.top = '0';
@@ -196,11 +176,22 @@
       });
 
       chart.render().then(() => {
-        mountCurve(); // <- curve lives INSIDE overlayDiv
+        mountCurve(); // <-- curve now lives INSIDE overlayDiv, forever
       });
     }
 
-    /* -------------------- INIT -------------------- */
+    /* -------------------- LOAD APEX + INIT -------------------- */
+    function loadApexCharts() {
+      return new Promise((resolve, reject) => {
+        if (window.ApexCharts) return resolve();
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
     loadApexCharts().then(initChart).catch(err => console.error('[Proton] ApexCharts failed', err));
 
     return container;
