@@ -20,12 +20,15 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE FUCK YOU
+        This Is How The Bots Will Behave HERE
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
 
     const chartDiv = container.querySelector('#apex-candlestick');
+    let overlayDiv;
+    let chart;
+    let svg, path;
 
     /* -------------------- LOAD APEX -------------------- */
     function loadApexCharts() {
@@ -69,7 +72,6 @@
       return values;
     }
 
-    /* -------------------- CANDLES -------------------- */
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
@@ -94,8 +96,6 @@
     }
 
     /* -------------------- SVG OVERLAY -------------------- */
-    let svg, path;
-
     function mountOverlay() {
       const inner = chartDiv.querySelector('.apexcharts-grid');
       if (!inner) return;
@@ -163,15 +163,12 @@
     }
 
     /* -------------------- CHART -------------------- */
-    let chart;
-    let overlayDiv;
-
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
       requestAnimationFrame(mountOverlay);
 
-      // keep overlay on top
-      if (overlayDiv) chartDiv.appendChild(overlayDiv);
+      // make sure overlay stays on top
+      if (overlayDiv && chartDiv.contains(overlayDiv)) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
@@ -189,17 +186,13 @@
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
-        yaxis: {
-          min: PRICE_MIN,
-          max: PRICE_MAX,
-          labels: { style: { colors: '#aaa' } }
-        }
+        yaxis: { min: PRICE_MIN, max: PRICE_MAX, labels: { style: { colors: '#aaa' } } }
       });
 
       chart.render().then(() => {
         mountOverlay();
 
-        // -------------------- RED BORDER DIV ON TOP OF CHART --------------------
+        // -------------------- RED BORDER DIV --------------------
         overlayDiv = document.createElement('div');
         overlayDiv.style.position = 'absolute';
         overlayDiv.style.top = '0';
@@ -211,18 +204,21 @@
         overlayDiv.style.background = 'transparent';
         overlayDiv.style.zIndex = '9999';
         chartDiv.appendChild(overlayDiv);
+
+        // -------------------- MUTATION OBSERVER: Keep overlay alive --------------------
+        const mo = new MutationObserver(() => {
+          if (!chartDiv.contains(overlayDiv)) chartDiv.appendChild(overlayDiv);
+        });
+        mo.observe(chartDiv, { childList: true, subtree: true });
         // -------------------------------------------------------------
       });
 
-      // Keep overlay size in sync on resize
       new ResizeObserver(() => {
         chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
         mountOverlay();
-
         if (overlayDiv) {
           overlayDiv.style.width = chartDiv.clientWidth + 'px';
           overlayDiv.style.height = chartDiv.clientHeight + 'px';
-          chartDiv.appendChild(overlayDiv); // always on top
         }
       }).observe(chartDiv);
     }
