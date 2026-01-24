@@ -24,7 +24,7 @@
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
 
-    const chartDiv = container.querySelector('#apex-candlestick');
+    const chartDiv = container.querySelector('.apexcharts-inner.apexcharts-graphical');
 
     // -------------------- APEX LOADER --------------------
     function loadApexCharts() {
