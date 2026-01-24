@@ -20,7 +20,7 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave FUCK CHAT GPT
+        This Is How The Bots Will Behave
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
@@ -28,7 +28,6 @@
     const chartDiv = container.querySelector('#apex-candlestick');
     let overlayDiv;
     let chart;
-    let svg, path;
 
     /* -------------------- LOAD APEX -------------------- */
     function loadApexCharts() {
@@ -95,15 +94,15 @@
       return candles;
     }
 
-    /* -------------------- SVG OVERLAY -------------------- */
-    function mountOverlay() {
-      const inner = chartDiv.querySelector('.apexcharts-grid');
-      if (!inner) return;
+    /* -------------------- MOUNT CURVE INSIDE OVERLAY -------------------- */
+    function mountCurve() {
+      if (!overlayDiv) return;
+      overlayDiv.innerHTML = ''; // clear previous SVG
 
-      if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+      const width = overlayDiv.clientWidth;
+      const height = overlayDiv.clientHeight;
 
-      const { width, height } = inner.getBoundingClientRect();
-      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.style.width = '100%';
       svg.style.height = '100%';
@@ -111,10 +110,9 @@
       svg.style.top = '0';
       svg.style.left = '0';
       svg.style.pointerEvents = 'auto';
-      inner.style.position = 'relative';
-      inner.appendChild(svg);
+      overlayDiv.appendChild(svg);
 
-      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', '#0af');
       path.setAttribute('stroke-width', '2');
@@ -151,7 +149,6 @@
           pt.x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
           pt.y = 1 - Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
           sync();
-          updateChart();
         });
 
         sync();
@@ -165,13 +162,22 @@
     /* -------------------- CHART -------------------- */
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
-      requestAnimationFrame(mountOverlay);
-
-      // make sure overlay stays on top
-      if (overlayDiv && chartDiv.contains(overlayDiv)) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
+      // create overlay first
+      overlayDiv = document.createElement('div');
+      overlayDiv.style.position = 'absolute';
+      overlayDiv.style.top = '0';
+      overlayDiv.style.left = '0';
+      overlayDiv.style.width = '100%';
+      overlayDiv.style.height = '100%';
+      overlayDiv.style.pointerEvents = 'none';
+      overlayDiv.style.border = '2px solid red';
+      overlayDiv.style.background = 'transparent';
+      overlayDiv.style.zIndex = '9999';
+      chartDiv.appendChild(overlayDiv);
+
       chart = new ApexCharts(chartDiv, {
         chart: {
           type: 'candlestick',
@@ -190,37 +196,8 @@
       });
 
       chart.render().then(() => {
-        mountOverlay();
-
-        // -------------------- RED BORDER DIV --------------------
-        overlayDiv = document.createElement('div');
-        overlayDiv.style.position = 'absolute';
-        overlayDiv.style.top = '0';
-        overlayDiv.style.left = '0';
-        overlayDiv.style.width = '100%';
-        overlayDiv.style.height = '100%';
-        overlayDiv.style.pointerEvents = 'none';
-        overlayDiv.style.border = '2px solid red';
-        overlayDiv.style.background = 'transparent';
-        overlayDiv.style.zIndex = '9999';
-        chartDiv.appendChild(overlayDiv);
-
-        // -------------------- MUTATION OBSERVER: Keep overlay alive --------------------
-        const mo = new MutationObserver(() => {
-          if (!chartDiv.contains(overlayDiv)) chartDiv.appendChild(overlayDiv);
-        });
-        mo.observe(chartDiv, { childList: true, subtree: true });
-        // -------------------------------------------------------------
+        mountCurve(); // <- curve lives INSIDE overlayDiv
       });
-
-      new ResizeObserver(() => {
-        chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
-        mountOverlay();
-        if (overlayDiv) {
-          overlayDiv.style.width = chartDiv.clientWidth + 'px';
-          overlayDiv.style.height = chartDiv.clientHeight + 'px';
-        }
-      }).observe(chartDiv);
     }
 
     /* -------------------- INIT -------------------- */
