@@ -20,14 +20,12 @@
     container.innerHTML = `
       <h3 style="margin:0;color:#0af;font-size:16px">Behavioral Settings</h3>
       <p style="margin:0;color:#cfe8ff;opacity:0.9">
-        This Is How The Bots Will Behave HERE
+        This Is How The Bots Will Behave HERE FUCK YOU
       </p>
       <div id="apex-candlestick" style="width:100%;height:${FIXED_HEIGHT}px;position:relative;"></div>
     `;
 
     const chartDiv = container.querySelector('#apex-candlestick');
-    let overlayDiv, svg, path;
-    let chart;
 
     /* -------------------- LOAD APEX -------------------- */
     function loadApexCharts() {
@@ -71,6 +69,7 @@
       return values;
     }
 
+    /* -------------------- CANDLES -------------------- */
     function generateCandles() {
       const curveValues = sampleCurve(CANDLE_COUNT);
       const candles = [];
@@ -94,15 +93,16 @@
       return candles;
     }
 
-    /* -------------------- OVERLAY + CURVE -------------------- */
+    /* -------------------- SVG OVERLAY -------------------- */
+    let svg, path;
+
     function mountOverlay() {
-      if (!overlayDiv) return;
-      const width = overlayDiv.clientWidth;
-      const height = overlayDiv.clientHeight;
+      const inner = chartDiv.querySelector('.apexcharts-grid');
+      if (!inner) return;
 
-      // clear previous SVG
-      overlayDiv.innerHTML = '';
+      if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
 
+      const { width, height } = inner.getBoundingClientRect();
       svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.style.width = '100%';
@@ -111,7 +111,8 @@
       svg.style.top = '0';
       svg.style.left = '0';
       svg.style.pointerEvents = 'auto';
-      overlayDiv.appendChild(svg);
+      inner.style.position = 'relative';
+      inner.appendChild(svg);
 
       path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('fill', 'none');
@@ -156,32 +157,24 @@
         sync();
       }
 
-      // add handles
       makeHandle(points[1]);
       makeHandle(points[2]);
       updatePath();
     }
 
     /* -------------------- CHART -------------------- */
+    let chart;
+    let overlayDiv;
+
     function updateChart() {
       chart.updateSeries([{ data: generateCandles() }], false);
       requestAnimationFrame(mountOverlay);
+
+      // keep overlay on top
+      if (overlayDiv) chartDiv.appendChild(overlayDiv);
     }
 
     function initChart() {
-      // create overlay first
-      overlayDiv = document.createElement('div');
-      overlayDiv.style.position = 'absolute';
-      overlayDiv.style.top = '0';
-      overlayDiv.style.left = '0';
-      overlayDiv.style.width = '100%';
-      overlayDiv.style.height = '100%';
-      overlayDiv.style.pointerEvents = 'auto';
-      overlayDiv.style.zIndex = '9999';
-      overlayDiv.style.border = '2px solid red';
-      overlayDiv.style.boxSizing = 'border-box';
-      chartDiv.appendChild(overlayDiv);
-
       chart = new ApexCharts(chartDiv, {
         chart: {
           type: 'candlestick',
@@ -196,18 +189,41 @@
         grid: { show: false },
         tooltip: { enabled: false },
         xaxis: { type: 'datetime' },
-        yaxis: { min: PRICE_MIN, max: PRICE_MAX, labels: { style: { colors: '#aaa' } } }
+        yaxis: {
+          min: PRICE_MIN,
+          max: PRICE_MAX,
+          labels: { style: { colors: '#aaa' } }
+        }
       });
 
       chart.render().then(() => {
         mountOverlay();
+
+        // -------------------- RED BORDER DIV ON TOP OF CHART --------------------
+        overlayDiv = document.createElement('div');
+        overlayDiv.style.position = 'absolute';
+        overlayDiv.style.top = '0';
+        overlayDiv.style.left = '0';
+        overlayDiv.style.width = '100%';
+        overlayDiv.style.height = '100%';
+        overlayDiv.style.pointerEvents = 'none';
+        overlayDiv.style.border = '2px solid red';
+        overlayDiv.style.background = 'transparent';
+        overlayDiv.style.zIndex = '9999';
+        chartDiv.appendChild(overlayDiv);
+        // -------------------------------------------------------------
       });
 
-      // keep overlay and SVG responsive
+      // Keep overlay size in sync on resize
       new ResizeObserver(() => {
+        chart.updateOptions({ chart: { width: chartDiv.clientWidth } });
         mountOverlay();
-        overlayDiv.style.width = chartDiv.clientWidth + 'px';
-        overlayDiv.style.height = chartDiv.clientHeight + 'px';
+
+        if (overlayDiv) {
+          overlayDiv.style.width = chartDiv.clientWidth + 'px';
+          overlayDiv.style.height = chartDiv.clientHeight + 'px';
+          chartDiv.appendChild(overlayDiv); // always on top
+        }
       }).observe(chartDiv);
     }
 
