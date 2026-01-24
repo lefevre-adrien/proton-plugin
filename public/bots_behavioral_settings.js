@@ -93,7 +93,7 @@
       return candles;
     }
 
-    /* -------------------- SVG OVERLAY (UNCHANGED) -------------------- */
+    /* -------------------- SVG OVERLAY -------------------- */
     let svg, path;
 
     function mountOverlay() {
@@ -195,19 +195,28 @@
       chart.render().then(() => {
         mountOverlay();
 
-        /* ===== ONLY ADDITION: RED BORDER DIV ON TOP ===== */
-        const overlayDiv = document.createElement('div');
-        overlayDiv.style.position = 'absolute';
-        overlayDiv.style.top = '0';
-        overlayDiv.style.left = '0';
-        overlayDiv.style.width = '100%';
-        overlayDiv.style.height = '100%';
-        overlayDiv.style.pointerEvents = 'none';
-        overlayDiv.style.border = '2px solid red';
-        overlayDiv.style.boxSizing = 'border-box';
-        overlayDiv.style.zIndex = '2147483647';
-        chartDiv.appendChild(overlayDiv);
-        /* =============================================== */
+        /* ===== FULL FIX: RED BORDER DIV ALWAYS ON TOP ===== */
+        let overlayDiv = chartDiv.querySelector('.red-border-overlay');
+        if (!overlayDiv) {
+          overlayDiv = document.createElement('div');
+          overlayDiv.className = 'red-border-overlay';
+          overlayDiv.style.position = 'absolute';
+          overlayDiv.style.top = '0';
+          overlayDiv.style.left = '0';
+          overlayDiv.style.width = '100%';
+          overlayDiv.style.height = '100%';
+          overlayDiv.style.pointerEvents = 'none';
+          overlayDiv.style.border = '2px solid red';
+          overlayDiv.style.boxSizing = 'border-box';
+          overlayDiv.style.zIndex = '9999';
+          chartDiv.appendChild(overlayDiv);
+        }
+
+        // Ensure overlay stays on top after redraws
+        const observer = new MutationObserver(() => {
+          chartDiv.appendChild(overlayDiv);
+        });
+        observer.observe(chartDiv, { childList: true });
       });
 
       new ResizeObserver(() => {
