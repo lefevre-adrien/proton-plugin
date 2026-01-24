@@ -106,7 +106,7 @@
       overlayDiv.style.top = '25px';
       overlayDiv.style.left = 'right';
       overlayDiv.style.width = '100%';
-      overlayDiv.style.height = '100%';
+      overlayDiv.style.height = 'calc(100%-50px)';
       overlayDiv.style.zIndex = '9999';
       overlayDiv.style.pointerEvents = 'none';
       overlayDiv.style.border = '2px solid red';
