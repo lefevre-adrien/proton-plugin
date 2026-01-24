@@ -105,7 +105,7 @@
       overlayDiv.style.position = 'absolute';
       overlayDiv.style.top = '25px';
       overlayDiv.style.bottom = '45px'
-      overlayDiv.style.left = '105px';
+      overlayDiv.style.left = '103px';
       overlayDiv.style.right = '20px';
       overlayDiv.style.zIndex = '9999';
       overlayDiv.style.pointerEvents = 'none';
