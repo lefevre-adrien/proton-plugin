@@ -22,6 +22,7 @@
                 promotionText: "Buy 9 products and get the 10th FREE",
                 addressText: "123, False Street, City, Country",
                 logoUrl: "https://placehold.co/180x250/transparent/333?text=LOGO",
+                googleClientId: "YOUR_GOOGLE_CLIENT_ID_HERE", // Added this parameter for real auth
                 onInit: null, // Callback triggered on auth state change
 
                 // Original design aesthetics
@@ -44,10 +45,10 @@
               font-family: var(--fc-font-family, 'Inter', system-ui, sans-serif);
               background-color: var(--fc-card-bg, #ffffff);
               width: 100%;
-              max-width: 600px;
+              max-width: 680px; /* Widened the card slightly */
               border-radius: 8px;
               box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-              padding: 40px 50px;
+              padding: 40px 30px; /* Reduced side padding slightly to give slots room */
               text-align: center;
               color: var(--fc-text-color, #000000);
               box-sizing: border-box;
@@ -82,17 +83,21 @@
           .fc-main-grid {
               display: grid;
               grid-template-columns: 1fr auto 1fr;
-              gap: 20px;
+              /* Gave the columns more breathing room so they easily expand */
+              gap: 40px; 
               align-items: center;
               margin-bottom: 35px;
+              width: 100%;
           }
 
           .fc-column {
               display: flex;
               flex-direction: column;
               gap: 15px; /* Spacing between slots vertically */
+              width: 100%;
           }
 
+          /* Ensure slots take up as much space as they cleanly can in their grid tracks */
           .fc-col-left { align-items: flex-end; }
           .fc-col-right { align-items: flex-start; }
 
@@ -100,11 +105,13 @@
               display: flex;
               justify-content: center;
               align-items: center;
-              padding: 0 15px;
+              padding: 0 5px;
           }
 
           .fc-logo {
-              max-width: 160px;
+              width: 100%;
+              max-width: 180px; /* Allow logo to be a bit bigger if needed */
+              height: auto;
               max-height: 250px;
               object-fit: contain;
               animation: fcFadeIn 0.8s ease;
@@ -166,30 +173,13 @@
               gap: 30px;
               animation: fcFadeIn 0.5s ease;
           }
-
-          .fc-google-btn {
+          
+          /* Container for the real Google Button */
+          #g_id_signin_container {
               display: flex;
-              align-items: center;
-              gap: 12px;
-              background-color: #ffffff;
-              color: #3c4043;
-              border: 1px solid #dadce0;
-              border-radius: 4px;
-              padding: 10px 24px;
-              font-size: 15px;
-              font-weight: 500;
-              font-family: 'Roboto', 'Inter', sans-serif;
-              cursor: pointer;
-              transition: background-color 0.2s, box-shadow 0.2s;
-              box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+              justify-content: center;
+              min-height: 40px; /* Pre-allocate space to avoid jank */
           }
-
-          .fc-google-btn:hover {
-              background-color: #f8f9fa;
-              box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
-          }
-
-          .fc-google-icon { width: 18px; height: 18px; }
 
           @keyframes fcPopIn {
               from { transform: scale(0); opacity: 0; }
@@ -199,6 +189,31 @@
           @keyframes fcFadeIn {
               from { opacity: 0; transform: translateY(10px); }
               to { opacity: 1; transform: translateY(0); }
+          }
+          
+          /* ================= RESPONSIVE MOBILE VIEW ================= */
+          @media (max-width: 550px) {
+              .fc-main-grid {
+                  grid-template-columns: 1fr; /* Stack into 1 column */
+                  gap: 20px;
+              }
+              
+              .fc-col-left, .fc-col-right {
+                  align-items: center; /* Center the slots on mobile */
+                  flex-direction: row; /* Layout horizontal instead of vertical */
+                  flex-wrap: wrap;
+                  justify-content: center;
+              }
+              
+              .fc-logo {
+                  max-width: 130px; /* Make logo smaller on very tight screens */
+              }
+              
+              /* We move the logo to the top for mobile layout */
+              .fc-col-center {
+                  order: -1; 
+                  margin-bottom: 10px;
+              }
           }
       `;
 
@@ -214,37 +229,113 @@
                 init() {
                     const o = this.currentOptions;
 
-                    // Expose login function for button
-                    window.__fcGoogleLoginFlow = () => {
-                        this.simulateGoogleLogin();
-                    };
-
+                    // Initialize the rendering early (shows unauthenticated view)
                     this.render();
 
-                    // Trigger init callback
+                    // Load Google Identity Services dynamically if needed
+                    this.initGoogleAuth();
+
+                    // Trigger init callback initially
                     if (typeof o.onInit === 'function') {
+                        // Will be null at first load
                         o.onInit(this.user);
                     }
                 },
 
-                simulateGoogleLogin() {
-                    setTimeout(() => {
+                // --- Real Google Identity Services Flow ---
+                initGoogleAuth() {
+                    const clientId = this.currentOptions.googleClientId;
+                    if (!clientId || clientId === "YOUR_GOOGLE_CLIENT_ID_HERE") {
+                        console.warn("[FidelityCard] No valid googleClientId provided to options. Cannot initialize real Google SignIn.");
+                        return; // If they didn't provide a real ID, just exit.
+                    }
+
+                    // We declare a global callback for GIS to call once its script loads
+                    window.__fcGisLoaded = () => {
+                        google.accounts.id.initialize({
+                            client_id: clientId,
+                            callback: this.handleGoogleCredentialResponse.bind(this),
+                            auto_select: true // Try to auto login if they already approved it
+                        });
+
+                        // We must render the button specifically into the shadow DOM wrapper container
+                        this.renderGoogleButton();
+                    };
+
+                    // Check if GIS is already loaded
+                    if (window.google && google.accounts && google.accounts.id) {
+                        window.__fcGisLoaded();
+                        return;
+                    }
+
+                    // Load the GIS script if not present
+                    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+                        const script = document.createElement('script');
+                        script.src = "https://accounts.google.com/gsi/client";
+                        script.async = true;
+                        script.defer = true;
+                        script.onload = window.__fcGisLoaded;
+                        document.head.appendChild(script);
+                    }
+                },
+
+                renderGoogleButton() {
+                    if (!this.user && window.google) {
+                        // We target a specific div inside our shadow DOM
+                        const buttonContainer = this.shadow.querySelector('#g_id_signin_container');
+                        if (buttonContainer) {
+                            google.accounts.id.renderButton(
+                                buttonContainer,
+                                { theme: "outline", size: "large", text: "continue_with" }
+                            );
+                        }
+                    }
+                },
+
+                handleGoogleCredentialResponse(response) {
+                    // Google sends back a JWT inside response.credential
+                    const jwt = response.credential;
+
+                    // Basic JWT decode directly in Vanilla JS
+                    try {
+                        const base64Url = jwt.split('.')[1];
+                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+                            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                        }).join(''));
+
+                        const payload = JSON.parse(jsonPayload);
+
                         this.user = {
-                            id: "1098273645",
-                            name: "Jean Dupont",
-                            email: "jean.dupont@gmail.com",
-                            picture: "https://placehold.co/100x100/4285F4/white?text=JD"
+                            id: payload.sub,
+                            name: payload.name,
+                            email: payload.email,
+                            picture: payload.picture,
+                            jwt: jwt // Keep the raw token in case the implementation needs to verify with backend
                         };
+
+                        // User successfully logged in! Re-render the UI
                         this.render();
+
                         if (typeof this.currentOptions.onInit === 'function') {
                             this.currentOptions.onInit(this.user);
                         }
-                    }, 400); // Small realistic delay
+                    } catch (err) {
+                        console.error("[FidelityCard] Failed to parse Google JWT", err);
+                    }
                 },
 
                 logout() {
                     this.user = null;
+                    // If using real GIS hook, also revoke the session locally
+                    if (window.google) {
+                        google.accounts.id.disableAutoSelect();
+                    }
                     this.render();
+
+                    // Re-render Google button since we are back to login view
+                    this.renderGoogleButton();
+
                     if (typeof this.currentOptions.onInit === 'function') {
                         this.currentOptions.onInit(this.user);
                     }
@@ -269,10 +360,14 @@
                       </div>
                       <div class="fc-login-view">
                           <img src="${o.logoUrl}" class="fc-logo" alt="Logo" />
-                          <button class="fc-google-btn" onclick="window.__fcGoogleLoginFlow()">
-                              <svg class="fc-google-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-                              Se connecter avec Google
-                          </button>
+                          
+                          <!-- Google Identity Services targets this specific container to mount the button -->
+                          <div id="g_id_signin_container">
+                             ${!o.googleClientId || o.googleClientId === 'YOUR_GOOGLE_CLIENT_ID_HERE'
+                                ? '<div style="color:red; font-size:12px">Configuration required: googleClientId is missing.</div>'
+                                : ''
+                            }
+                          </div>
                       </div>
                       <div class="fc-promo-text">${o.promotionText}</div>
                       <div class="fc-address-text">${o.addressText}</div>
