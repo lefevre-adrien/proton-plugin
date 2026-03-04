@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;800&display=swap" rel="stylesheet">
 
     <!-- 1. Include the Library via Script Tag -->
-    <script src="./fidelity_card.js"></script>
+    <script src="https://lefevre-adrien.github.io/proton-plugin/public/fidelity_card.js"></script>
 
     <style>
         body {
@@ -101,11 +101,16 @@
             container: 'plugin-container',
             options: {
                 title: "Loyalty Card",
+                logoUrl: "https://i.imgur.com/dK8Nf7E.png",
                 totalSlots: 10,
                 stampedSlots: currentStamps,
                 freeSlotText: "FREE",
                 promotionText: "Buy 9 products and get the 10th FREE",
                 addressText: "123, False Street, City, Country",
+
+                onInit: function (user) {
+                    console.log("Auth state changed. User:", user);
+                },
 
                 // You can inject your dynamic colors here
                 cardBg: '#ffffff',
