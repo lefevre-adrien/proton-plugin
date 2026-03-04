@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fidelity Card Plugin Demo</title>
+    <!-- Include Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;800&display=swap" rel="stylesheet">
+
+    <!-- 1. Include the Library via Script Tag -->
+    <script src="./fidelity_card.js"></script>
+
+    <style>
+        body {
+            background-color: #8bb7b6;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        #plugin-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .demo-panel {
+            margin-top: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .demo-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #2a2a2a;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #444;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 2. The Target Container -->
+    <div id="plugin-container"></div>
+
+    <div class="demo-panel">
+        <h3>API Mock Controls</h3>
+        <div class="controls">
+            <button onclick="addStamp()">➕ Add Stamp</button>
+            <button onclick="removeStamp()">➖ Remove Stamp</button>
+            <button onclick="changeColors()">🎨 Change Colors (Dark/Light)</button>
+        </div>
+    </div>
+
+    <!-- 3. Initialize the library -->
+    <script>
+        // Store current stamps
+        let currentStamps = 0;
+        let isDarkMode = false;
+
+        // Initialize the card
+        const cardInstance = window.FidelityCard.init({
+            container: 'plugin-container',
+            options: {
+                title: "Loyalty Card",
+                totalSlots: 10,
+                stampedSlots: currentStamps,
+                freeSlotText: "FREE",
+                promotionText: "Buy 9 products and get the 10th FREE",
+                addressText: "123, False Street, City, Country",
+
+                // You can inject your dynamic colors here
+                cardBg: '#ffffff',
+                textColor: '#000000',
+                circleBorder: '#333333',
+                stampColor: '#c5e8e8'
+            }
+        });
+
+        // Interactive Handlers
+        function addStamp() {
+            if (currentStamps < 9) {
+                currentStamps++;
+                cardInstance.update({ stampedSlots: currentStamps });
+            } else {
+                alert("Card is fully stamped!");
+            }
+        }
+
+        function removeStamp() {
+            if (currentStamps > 0) {
+                currentStamps--;
+                cardInstance.update({ stampedSlots: currentStamps });
+            }
+        }
+
+        function changeColors() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                cardInstance.update({
+                    cardBg: '#1e1e1e',
+                    textColor: '#ffffff',
+                    circleBorder: '#ffffff',
+                    stampColor: '#ff6b6b' // pop of coral color
+                });
+                document.body.style.backgroundColor = '#121212';
+            } else {
+                cardInstance.update({
+                    cardBg: '#ffffff',
+                    textColor: '#000000',
+                    circleBorder: '#333333',
+                    stampColor: '#c5e8e8'
+                });
+                document.body.style.backgroundColor = '#8bb7b6';
+            }
+        }
+    </script>
+</body>
+
+</html>
