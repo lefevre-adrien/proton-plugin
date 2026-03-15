@@ -232,6 +232,7 @@
                 wrapper: wrapper,
                 shadow: shadow,
                 user: null, // Setup user logic
+                loading: true, // Start in loading state
 
                 init() {
                     const o = this.currentOptions;
@@ -272,7 +273,15 @@
                             await this.handleUserAuth(firebaseUser, idToken);
                         } else {
                             this.user = null;
+                            this.loading = false; // Done checking
                             this.render();
+
+                            // Auto-trigger login if QR code is detected "no matter what"
+                            const urlParams = new URLSearchParams(window.location.search);
+                            if (urlParams.has('qr')) {
+                                console.log("[FidelityCard] QR detected and no session. Attempting auto-login...");
+                                this.loginWithGoogle();
+                            }
                         }
                     });
                 },
@@ -339,11 +348,16 @@
                             await this.processQrStamp(qrId);
                         }
 
+                        this.loading = false;
+                        this.render();
+
                         if (typeof this.currentOptions.onInit === 'function') {
                             this.currentOptions.onInit(this.user);
                         }
                     } catch (err) {
                         console.error("[FidelityCard] Backend verification failed", err);
+                        this.loading = false;
+                        this.render();
                     }
                 },
 
@@ -398,6 +412,19 @@
                     this.wrapper.style.setProperty('--fc-circle-border', o.circleBorder);
                     this.wrapper.style.setProperty('--fc-stamp-color', o.stampColor);
                     this.wrapper.style.setProperty('--fc-slot-size', o.slotSize);
+
+                    // View 0: Loading
+                    if (this.loading) {
+                        this.wrapper.innerHTML = `
+                            <div style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+                                <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #333; border-radius: 50%; animation: fcSpin 1s linear infinite;"></div>
+                            </div>
+                            <style>
+                                @keyframes fcSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                            </style>
+                        `;
+                        return;
+                    }
 
                     // View 1: Not Connected
                     if (!this.user) {
