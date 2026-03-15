@@ -29,7 +29,7 @@
                     projectId: "YOUR_PROJECT_ID"
                 },
                 apiKey: "YOUR_MERCHANT_API_KEY",
-                backendUrl: "http://localhost:5000",
+                backendUrl: "https://proton-plugin-backend.onrender.com",
                 onInit: null, // Callback triggered on auth state change
 
                 // Original design aesthetics
