@@ -101,7 +101,7 @@
             container: 'plugin-container',
             options: {
                 title: "Loyalty Card",
-                logoUrl: "https://i.imgur.com/dK8Nf7E.png",
+                logoUrl: "https://www.madamepopcorn.com/wp-content/themes/madamepopcorn/public/images/logo-bg.svg",
                 totalSlots: 10,
                 stampedSlots: currentStamps,
                 freeSlotText: "FREE",
@@ -114,6 +114,7 @@
                     authDomain: "fidelity-card-plugin.firebaseapp.com", // Inferred
                     projectId: "fidelity-card-plugin" // Inferred
                 },
+                apiKey: "TEST_MERCHANT_KEY_123",
                 backendUrl: "http://localhost:5000",
 
                 onInit: function (user) {
@@ -140,7 +141,8 @@
                 const response = await fetch('http://localhost:5000/api/card/add-stamp', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${cardInstance.user.idToken}`
+                        'Authorization': `Bearer ${cardInstance.user.idToken}`,
+                        'x-api-key': 'madame-popcorn-123'
                     }
                 });
                 const result = await response.json();

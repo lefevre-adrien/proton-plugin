@@ -28,6 +28,7 @@
                     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
                     projectId: "YOUR_PROJECT_ID"
                 },
+                apiKey: "YOUR_MERCHANT_API_KEY",
                 backendUrl: "http://localhost:5000",
                 onInit: null, // Callback triggered on auth state change
 
@@ -313,7 +314,10 @@
                         // Verify token with backend and get user data
                         const response = await fetch(`${this.currentOptions.backendUrl}/auth/verify-token`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'x-api-key': this.currentOptions.apiKey
+                            },
                             body: JSON.stringify({ idToken })
                         });
 
@@ -326,11 +330,51 @@
 
                         this.render();
 
+                        // --- Automatic QR Stamping Logic ---
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const qrId = urlParams.get('qr');
+
+                        if (qrId && !this._qrProcessed) {
+                            this._qrProcessed = true; // Prevent double trigger
+                            await this.processQrStamp(qrId);
+                        }
+
                         if (typeof this.currentOptions.onInit === 'function') {
                             this.currentOptions.onInit(this.user);
                         }
                     } catch (err) {
                         console.error("[FidelityCard] Backend verification failed", err);
+                    }
+                },
+
+                async processQrStamp(qrId) {
+                    try {
+                        const response = await fetch(`${this.currentOptions.backendUrl}/api/card/qr-stamp`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.user.idToken}`,
+                                'x-api-key': this.currentOptions.apiKey
+                            },
+                            body: JSON.stringify({ qrId })
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            this.user.stampedSlots = result.stampedSlots;
+                            this.render();
+                            alert("Congratulations! You received a new stamp!");
+                        } else {
+                            alert(result.error || "QR Stamp failed.");
+                        }
+                        
+                        // Clean up URL to prevent confusion on reload
+                        const url = new URL(window.location);
+                        url.searchParams.delete('qr');
+                        window.history.replaceState({}, document.title, url);
+
+                    } catch (err) {
+                        console.error("[FidelityCard] QR Stamp failed", err);
                     }
                 },
 
