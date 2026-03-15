@@ -108,8 +108,20 @@
                 promotionText: "Buy 9 products and get the 10th FREE",
                 addressText: "123, False Street, City, Country",
 
+                firebaseConfig: {
+                    apiKey: "AIzaSyC0dU5Zzb4wkOs85FsWEseCJHCEIjIhhFA",
+                    appId: "1:465137465834:web:039fa543372260d4cdda93",
+                    authDomain: "fidelity-card-plugin.firebaseapp.com", // Inferred
+                    projectId: "fidelity-card-plugin" // Inferred
+                },
+                backendUrl: "http://localhost:5000",
+
                 onInit: function (user) {
                     console.log("Auth state changed. User:", user);
+                    if (user) {
+                        currentStamps = user.stampedSlots || 0;
+                        cardInstance.update({ stampedSlots: currentStamps });
+                    }
                 },
 
                 // You can inject your dynamic colors here
@@ -121,20 +133,31 @@
         });
 
         // Interactive Handlers
-        function addStamp() {
-            if (currentStamps < 9) {
-                currentStamps++;
-                cardInstance.update({ stampedSlots: currentStamps });
-            } else {
-                alert("Card is fully stamped!");
+        async function addStamp() {
+            if (!cardInstance.user) return alert("Please login first!");
+
+            try {
+                const response = await fetch('http://localhost:5000/api/card/add-stamp', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${cardInstance.user.idToken}`
+                    }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    currentStamps = result.stampedSlots;
+                    cardInstance.update({ stampedSlots: currentStamps });
+                } else {
+                    alert(result.error);
+                }
+            } catch (err) {
+                console.error("Failed to add stamp", err);
             }
         }
 
-        function removeStamp() {
-            if (currentStamps > 0) {
-                currentStamps--;
-                cardInstance.update({ stampedSlots: currentStamps });
-            }
+        async function removeStamp() {
+            // Usually we'd have a 'remove' endpoint, but for now let's just use reset as an example or mock it
+            alert("Remove stamp not implemented on backend for this demo.");
         }
 
         function changeColors() {

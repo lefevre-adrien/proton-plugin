@@ -22,7 +22,13 @@
                 promotionText: "Buy 9 products and get the 10th FREE",
                 addressText: "123, False Street, City, Country",
                 logoUrl: "https://placehold.co/180x250/transparent/333?text=LOGO",
-                googleClientId: "YOUR_GOOGLE_CLIENT_ID_HERE", // Added this parameter for real auth
+                firebaseConfig: {
+                    apiKey: "YOUR_FIREBASE_API_KEY",
+                    appId: "YOUR_FIREBASE_APP_ID",
+                    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                    projectId: "YOUR_PROJECT_ID"
+                },
+                backendUrl: "http://localhost:5000",
                 onInit: null, // Callback triggered on auth state change
 
                 // Original design aesthetics
@@ -242,103 +248,100 @@
                     }
                 },
 
-                // --- Real Google Identity Services Flow ---
-                initGoogleAuth() {
-                    const clientId = this.currentOptions.googleClientId;
-                    if (!clientId || clientId === "YOUR_GOOGLE_CLIENT_ID_HERE") {
-                        console.warn("[FidelityCard] No valid googleClientId provided to options. Cannot initialize real Google SignIn.");
-                        return; // If they didn't provide a real ID, just exit.
-                    }
-
-                    // We declare a global callback for GIS to call once its script loads
-                    window.__fcGisLoaded = () => {
-                        google.accounts.id.initialize({
-                            client_id: clientId,
-                            callback: this.handleGoogleCredentialResponse.bind(this),
-                            auto_select: true // Try to auto login if they already approved it
-                        });
-
-                        // We must render the button specifically into the shadow DOM wrapper container
-                        this.renderGoogleButton();
-                    };
-
-                    // Check if GIS is already loaded
-                    if (window.google && google.accounts && google.accounts.id) {
-                        window.__fcGisLoaded();
+                // --- Firebase Authentication Flow ---
+                async initGoogleAuth() {
+                    const config = this.currentOptions.firebaseConfig;
+                    if (!config || !config.apiKey || config.apiKey === "YOUR_FIREBASE_API_KEY") {
+                        console.warn("[FidelityCard] No valid Firebase config provided. Authentication disabled.");
                         return;
                     }
 
-                    // Load the GIS script if not present
-                    if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
-                        const script = document.createElement('script');
-                        script.src = "https://accounts.google.com/gsi/client";
-                        script.async = true;
-                        script.defer = true;
-                        script.onload = window.__fcGisLoaded;
-                        document.head.appendChild(script);
-                    }
-                },
+                    // Load Firebase scripts if not present
+                    await this.loadFirebaseScripts();
 
-                renderGoogleButton() {
-                    if (!this.user && window.google) {
-                        // We target a specific div inside our shadow DOM
-                        const buttonContainer = this.shadow.querySelector('#g_id_signin_container');
-                        if (buttonContainer) {
-                            google.accounts.id.renderButton(
-                                buttonContainer,
-                                { theme: "outline", size: "large", text: "continue_with" }
-                            );
+                    // Initialize Firebase if not already initialized
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(config);
+                    }
+
+                    // Check if user is already logged in
+                    firebase.auth().onAuthStateChanged(async (firebaseUser) => {
+                        if (firebaseUser) {
+                            const idToken = await firebaseUser.getIdToken();
+                            await this.handleUserAuth(firebaseUser, idToken);
+                        } else {
+                            this.user = null;
+                            this.render();
                         }
+                    });
+                },
+
+                loadFirebaseScripts() {
+                    const scripts = [
+                        "https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js",
+                        "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"
+                    ];
+
+                    return Promise.all(scripts.map(src => {
+                        return new Promise((resolve) => {
+                            if (document.querySelector(`script[src="${src}"]`)) {
+                                resolve();
+                                return;
+                            }
+                            const script = document.createElement('script');
+                            script.src = src;
+                            script.async = true;
+                            script.onload = resolve;
+                            document.head.appendChild(script);
+                        });
+                    }));
+                },
+
+                async loginWithGoogle() {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    try {
+                        const result = await firebase.auth().signInWithPopup(provider);
+                        const idToken = await result.user.getIdToken();
+                        await this.handleUserAuth(result.user, idToken);
+                    } catch (error) {
+                        console.error("[FidelityCard] Login failed", error);
                     }
                 },
 
-                handleGoogleCredentialResponse(response) {
-                    // Google sends back a JWT inside response.credential
-                    const jwt = response.credential;
-
-                    // Basic JWT decode directly in Vanilla JS
+                async handleUserAuth(firebaseUser, idToken) {
                     try {
-                        const base64Url = jwt.split('.')[1];
-                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
-                            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                        }).join(''));
+                        // Verify token with backend and get user data
+                        const response = await fetch(`${this.currentOptions.backendUrl}/auth/verify-token`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ idToken })
+                        });
 
-                        const payload = JSON.parse(jsonPayload);
+                        const userData = await response.json();
 
                         this.user = {
-                            id: payload.sub,
-                            name: payload.name,
-                            email: payload.email,
-                            picture: payload.picture,
-                            jwt: jwt // Keep the raw token in case the implementation needs to verify with backend
+                            ...userData,
+                            idToken: idToken
                         };
 
-                        // User successfully logged in! Re-render the UI
                         this.render();
 
                         if (typeof this.currentOptions.onInit === 'function') {
                             this.currentOptions.onInit(this.user);
                         }
                     } catch (err) {
-                        console.error("[FidelityCard] Failed to parse Google JWT", err);
+                        console.error("[FidelityCard] Backend verification failed", err);
                     }
                 },
 
                 logout() {
-                    this.user = null;
-                    // If using real GIS hook, also revoke the session locally
-                    if (window.google) {
-                        google.accounts.id.disableAutoSelect();
-                    }
-                    this.render();
-
-                    // Re-render Google button since we are back to login view
-                    this.renderGoogleButton();
-
-                    if (typeof this.currentOptions.onInit === 'function') {
-                        this.currentOptions.onInit(this.user);
-                    }
+                    firebase.auth().signOut().then(() => {
+                        this.user = null;
+                        this.render();
+                        if (typeof this.currentOptions.onInit === 'function') {
+                            this.currentOptions.onInit(this.user);
+                        }
+                    });
                 },
 
                 render() {
@@ -361,14 +364,14 @@
                       <div class="fc-login-view">
                           <img src="${o.logoUrl}" class="fc-logo" alt="Logo" />
                           
-                          <!-- Google Identity Services targets this specific container to mount the button -->
-                          <div id="g_id_signin_container">
-                             ${!o.googleClientId || o.googleClientId === 'YOUR_GOOGLE_CLIENT_ID_HERE'
-                                ? '<div style="color:red; font-size:12px">Configuration required: googleClientId is missing.</div>'
-                                : ''
-                            }
-                          </div>
-                      </div>
+                           <!-- Google Sign-In Button -->
+                           <div id="fc-login-container">
+                              <button id="fc-login-btn" style="background: white; color: #444; border: 1px solid #ddd; padding: 10px 20px; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500;">
+                                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18" alt="Google" />
+                                 Continue with Google
+                              </button>
+                           </div>
+                       </div>
                       <div class="fc-promo-text">${o.promotionText}</div>
                       <div class="fc-address-text">${o.addressText}</div>
                   `;
@@ -426,6 +429,14 @@
 
             shadow.appendChild(style);
             shadow.appendChild(wrapper);
+
+            // Click listener for login button (delegated since innerHTML is replaced)
+            wrapper.addEventListener('click', (e) => {
+                const btn = e.target.closest('#fc-login-btn');
+                if (btn) {
+                    instance.loginWithGoogle();
+                }
+            });
 
             instance.init();
             containerEl.__fidelityInstance = instance;
