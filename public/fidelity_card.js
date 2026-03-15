@@ -337,6 +337,10 @@
                             idToken: idToken
                         };
 
+                        // Sync options with backend-provided merchant config
+                        if (userData.totalSlots) this.currentOptions.totalSlots = userData.totalSlots;
+                        if (userData.promotionText) this.currentOptions.promotionText = userData.promotionText;
+
                         this.render();
 
                         // --- Automatic QR Stamping Logic ---
@@ -376,10 +380,16 @@
                         const result = await response.json();
                         if (result.success) {
                             this.user.stampedSlots = result.stampedSlots;
+                            // Update tier info if card was completed
+                            if (result.totalSlots) this.currentOptions.totalSlots = result.totalSlots;
+                            if (result.promotionText) this.currentOptions.promotionText = result.promotionText;
+
                             this.render();
-                            alert("Congratulations! You received a new stamp!");
-                        } else {
-                            alert(result.error || "QR Stamp failed.");
+                            
+                            if (result.rewardUnlocked) {
+                                // You could trigger a nice confetti animation here instead of an alert!
+                                console.log("[FidelityCard] Reward unlocked!");
+                            }
                         }
                         
                         // Clean up URL to prevent confusion on reload

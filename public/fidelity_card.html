@@ -81,15 +81,6 @@
     <!-- 2. The Target Container -->
     <div id="plugin-container"></div>
 
-    <div class="demo-panel">
-        <h3>API Mock Controls</h3>
-        <div class="controls">
-            <button onclick="addStamp()">➕ Add Stamp</button>
-            <button onclick="removeStamp()">➖ Remove Stamp</button>
-            <button onclick="changeColors()">🎨 Change Colors (Dark/Light)</button>
-        </div>
-    </div>
-
     <!-- 3. Initialize the library -->
     <script>
         // Store current stamps
@@ -101,7 +92,7 @@
             container: 'plugin-container',
             options: {
                 title: "Loyalty Card",
-                logoUrl: "https://www.madamepopcorn.com/wp-content/themes/madamepopcorn/public/images/logo-bg.svg",
+                logoUrl: "https://i.imgur.com/dK8Nf7E.png",
                 totalSlots: 10,
                 stampedSlots: currentStamps,
                 freeSlotText: "FREE",
@@ -133,35 +124,7 @@
             }
         });
 
-        // Interactive Handlers
-        async function addStamp() {
-            if (!cardInstance.user) return alert("Please login first!");
-
-            try {
-                const response = await fetch('http://localhost:5000/api/card/add-stamp', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${cardInstance.user.idToken}`,
-                        'x-api-key': 'madame-popcorn-123'
-                    }
-                });
-                const result = await response.json();
-                if (result.success) {
-                    currentStamps = result.stampedSlots;
-                    cardInstance.update({ stampedSlots: currentStamps });
-                } else {
-                    alert(result.error);
-                }
-            } catch (err) {
-                console.error("Failed to add stamp", err);
-            }
-        }
-
-        async function removeStamp() {
-            // Usually we'd have a 'remove' endpoint, but for now let's just use reset as an example or mock it
-            alert("Remove stamp not implemented on backend for this demo.");
-        }
-
+        // Interactive Handlers (for demo color switching)
         function changeColors() {
             isDarkMode = !isDarkMode;
             if (isDarkMode) {
